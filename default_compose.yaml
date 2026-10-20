@@ -32,7 +32,3 @@ services:
       - PANGOLIN_ENDPOINT=${PANGOLIN_ENDPOINT}
       - NEWT_ID=${PANGOLIN_ID}
       - NEWT_SECRET=${PANGOLIN_SECRET}
-
-  tailscale:
-    base_url:
-    

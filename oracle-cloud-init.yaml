@@ -47,6 +47,6 @@ runcmd:
 
 # 5. Download AutoMorph configuration
   - mkdir -p /home/ubuntu/automorph
-  - curl -fsSL https://raw.githubusercontent.com/holjab/AutoMorph/main/compose.yaml -o /home/ubuntu/automorph/compose.yaml
+  - curl -fsSL https://raw.githubusercontent.com/holjab/AutoMorph/main/default_compose.yaml -o /home/ubuntu/automorph/compose.yaml
   - curl -fsSL https://raw.githubusercontent.com/holjab/AutoMorph/main/example.env -o /home/ubuntu/automorph/.env
   - chown -R ubuntu:ubuntu /home/ubuntu/automorph
