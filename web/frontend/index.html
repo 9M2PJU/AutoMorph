@@ -975,6 +975,25 @@
     </div>
   </div>
 
+  <!-- Wizard Step 2->3 Loading / Downloading Popup -->
+  <div id="modal-wizard-loading" class="modal-backdrop" style="z-index: 200;">
+    <div class="modal-card" style="max-width: 440px; text-align: center; padding: 28px 24px; border-radius: var(--radius-lg); background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-lg);">
+      <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); display: flex; align-items: center; justify-content: center;">
+          <span class="material-symbols-rounded" style="font-size: 28px; color: var(--primary-cyan); animation: spin 1s infinite linear;">sync</span>
+        </div>
+      </div>
+      <h3 id="wiz-loading-title" style="font-size: 1.125rem; font-family: var(--font-display); font-weight: 700; margin-bottom: 8px;">Preparing Patch Options...</h3>
+      <p id="wiz-loading-subtitle" style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45;">
+        Downloading repository bundle & populating patches via Morphe CLI.
+      </p>
+      <div style="font-size: 0.75rem; color: var(--text-dim); background: var(--bg-surface); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); display: inline-flex; align-items: center; gap: 6px; text-align: left;">
+        <span class="material-symbols-rounded" style="font-size: 15px; color: var(--primary-cyan); flex-shrink: 0;">info</span>
+        <span>First-time setup may take a few moments. Results are cached locally.</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ========================================================================
        MODAL 3: Application Configuration & Patch Editor Modal
        ======================================================================== -->
