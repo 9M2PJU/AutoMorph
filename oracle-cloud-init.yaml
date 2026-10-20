@@ -1,0 +1,52 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - curl
+  - nano
+  - ca-certificates
+
+runcmd:
+  # 1. Create a 4GB Swap File
+  - swapoff -a || true
+  - fallocate -l 4G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=4096
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+  # 2. Kernel Tuning (Swappiness & BBR)
+  - echo 'vm.swappiness=10' >> /etc/sysctl.conf
+  - echo 'net.core.default_qdisc=fq' >> /etc/sysctl.conf
+  - echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.conf
+  - sysctl -p
+
+  # 3. Network MTU Clamping (Fixes OCI 9000 to Docker 1500 drop)
+  - DEV=$(ip route | awk '/default/ {print $5}')
+  - ip link set dev $DEV mtu 1500
+  - mkdir -p /etc/networkd-dispatcher/routable.d
+  - |
+    cat <<'EOF' > /etc/networkd-dispatcher/routable.d/10-set-mtu.sh
+    #!/bin/sh
+    DEV=$(ip route | awk '/default/ {print $5}')
+    [ -n "$DEV" ] && ip link set dev "$DEV" mtu 1500
+    EOF
+  - chmod +x /etc/networkd-dispatcher/routable.d/10-set-mtu.sh
+
+  # 4. Install Docker & Configure Daemon MTU
+  - sh -c 'curl -fsSL https://get.docker.com | DEBIAN_FRONTEND=noninteractive sh'
+  - usermod -aG docker ubuntu
+  - |
+    cat <<'EOF' > /etc/docker/daemon.json
+    {
+      "mtu": 1500
+    }
+    EOF
+  - systemctl restart docker
+
+  # 5. Directories and Permissions
+  - mkdir -p /home/ubuntu/automorph
+  - chown -R ubuntu:ubuntu /home/ubuntu/automorph
+
+  # 6. Get example env and compose

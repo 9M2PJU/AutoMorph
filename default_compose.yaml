@@ -1,0 +1,38 @@
+services:
+  automorph:
+    image: ghcr.io/holjab/automorph:latest
+    container_name: automorph
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - TAILSCALE_FUNNEL_URL=${TAILSCALE_FUNNEL_URL:-}
+    env_file:
+      - .env
+    volumes:
+      - ./apps:/automorph/apps:rw
+      - ./tools/morphe-data:/automorph/tools/morphe-data:rw
+      - ./tools/automorph-data:/automorph/tools/automorph-data:rw
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare_tunnel
+    restart: unless-stopped
+    profiles: ["cloudflare"]
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+
+  pangolin:
+    image: fosrl/newt:latest
+    container_name: pangolin_newt
+    restart: unless-stopped
+    profiles: ["pangolin"]
+    environment:
+      - PANGOLIN_ENDPOINT=${PANGOLIN_ENDPOINT}
+      - NEWT_ID=${PANGOLIN_ID}
+      - NEWT_SECRET=${PANGOLIN_SECRET}
+
+  tailscale:
+    base_url:
+    

@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoMorph — Automated Patching Dashboard</title>
+  <meta name="description" content="Management dashboard and APK repository for AutoMorph patcher engine.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" type="image/png" href="trim-logo.png">
+  
+  <!-- Critical Anti-FOUC Styles & Theme Loader -->
+  <style>
+    :root {
+      color-scheme: dark;
+      background-color: #0d0e12;
+      color: #f3f4f6;
+    }
+    [data-theme="light"] {
+      color-scheme: light;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    html, body {
+      background-color: #0d0e12;
+      color: #f3f4f6;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    body.app-ready {
+      opacity: 1;
+    }
+    [data-theme="light"] html, [data-theme="light"] body {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .material-symbols-rounded {
+      font-family: 'Material Symbols Rounded', sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+      vertical-align: middle;
+      user-select: none;
+    }
+  </style>
+  <noscript>
+    <style>
+      body { opacity: 1 !important; }
+    </style>
+  </noscript>
+  <script>
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('automorph-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } catch (e) {}
+
+      function reveal() {
+        if (document.body) {
+          document.body.classList.add('app-ready');
+        }
+      }
+
+      if (document.fonts && document.fonts.ready) {
+        Promise.race([
+          document.fonts.ready,
+          new Promise(function(r) { setTimeout(r, 200); })
+        ]).then(reveal).catch(reveal);
+      } else {
+        document.addEventListener('DOMContentLoaded', reveal);
+      }
+      setTimeout(reveal, 350);
+    })();
+  </script>
+
+  <!-- Resource Preloads & Stylesheets -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="css/morphe.css?v=3.6">
+  <link rel="stylesheet" href="css/morphe.css?v=3.6">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="brand-group" aria-label="AutoMorph">
+        <img src="logo.png" alt="AutoMorph" class="brand-logo-img">
+      </a>
+
+      <div class="nav-actions">
+        <div id="status-badge" class="badge badge-info" style="cursor: pointer;" title="Click to view live console">
+          <span class="material-symbols-rounded" style="font-size: 14px;">sync</span>
+          <span id="status-badge-text">Connecting...</span>
+        </div>
+
+        <button id="btn-view-console" class="btn btn-secondary btn-sm hidden" title="Open live execution console">
+          <span class="material-symbols-rounded" style="color: var(--primary-cyan);">terminal</span>
+          <span>Live Console</span>
+        </button>
+
+        <button id="btn-run-pipeline" class="btn btn-secondary btn-sm" title="Trigger a manual patching run">
+          <span class="material-symbols-rounded">play_arrow</span>
+          <span>Run Now</span>
+        </button>
+
+        <button id="btn-add-app-nav" class="btn btn-primary btn-sm">
+          <span class="material-symbols-rounded">add</span>
+          <span>Add Package</span>
+        </button>
+
+        <button id="btn-theme-toggle" class="btn btn-secondary btn-icon-only" aria-label="Toggle theme">
+          <span class="material-symbols-rounded" id="theme-icon">light_mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    
+    <!-- Hero & Stats Section -->
+    <section class="hero-section">
+      <div class="hero-header">
+        <div class="hero-title-area">
+          <h1>Patcher <span class="text-gradient">Control Center</span></h1>
+          <p>Automated building, version tracking, and distribution for patched Android apps.</p>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="btn-refresh-status" class="btn btn-secondary btn-sm">
+            <span class="material-symbols-rounded">refresh</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+ 
+      <!-- Active Execution Banner (Dynamic) -->
+      <div id="active-run-banner" class="hidden active-run-banner" style="margin-bottom: 20px; background: rgba(32, 207, 206, 0.1); border: 1px solid rgba(32, 207, 206, 0.35); border-radius: var(--radius-md); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span class="badge-pulse" style="width: 10px; height: 10px; border-radius: 50%; background: var(--primary-cyan); display: inline-block;"></span>
+          <div>
+            <div style="font-weight: 600; font-size: 0.9375rem; color: #fff;">Patching Pipeline is Currently Running</div>
+            <div id="active-run-banner-source" style="font-size: 0.8125rem; color: var(--text-muted);">Triggered in background</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btn-banner-open-console" class="btn btn-primary btn-sm" type="button">
+            <span class="material-symbols-rounded">terminal</span>
+            <span>View Live Console</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <!-- Stat: Next Scheduled Run -->
+        <div class="stat-card">
+          <div class="stat-icon-wrap">
+            <span class="material-symbols-rounded">schedule</span>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Next Scheduled Run</span>
+            <span id="stat-next-run" class="stat-value">--:--</span>
+            <span id="stat-next-sub" class="stat-sub">Daily schedule</span>
+          </div>
+        </div>
+
+        <!-- Stat: Last Run -->
+        <div class="stat-card stat-card-interactive" id="stat-card-last-run" role="button" tabindex="0" title="Click to view execution log of the last run">
+          <div class="stat-icon-wrap" id="stat-last-icon-wrap">
+            <span class="material-symbols-rounded" id="stat-last-icon">history</span>
+          </div>
+          <div class="stat-info" style="flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <span class="stat-label">Last Pipeline Run</span>
+              <span class="material-symbols-rounded stat-action-hint" style="font-size: 16px; color: var(--text-dim); opacity: 0.7;" title="Click to view log">terminal</span>
+            </div>
+            <span id="stat-last-status" class="stat-value">None</span>
+            <span id="stat-last-sub" class="stat-sub">Duration: --</span>
+          </div>
+        </div>
+
+        <!-- Stat: Patched APK Storage -->
+        <div class="stat-card">
+          <div class="stat-icon-wrap">
+            <span class="material-symbols-rounded">inventory_2</span>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Patched Storage</span>
+            <span id="stat-storage-size" class="stat-value">0 MB</span>
+            <span id="stat-apk-count" class="stat-sub">0 ready APKs</span>
+          </div>
+        </div>
+
+        <!-- Stat: Configured Apps & Sources -->
+        <div class="stat-card">
+          <div class="stat-icon-wrap">
+            <span class="material-symbols-rounded">extension</span>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Apps & Upstream Repos</span>
+            <span id="stat-apps-count" class="stat-value">0 Apps</span>
+            <span id="stat-repos-count" class="stat-sub">0 Connected Repos</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toolbar & Tabs -->
+    <section class="toolbar-section">
+      <div class="tabs-group">
+        <button class="tab-btn active" data-tab="apps" title="Configured Apps">
+          <span class="material-symbols-rounded tab-icon">apps</span>
+          <span class="tab-label-full">Configured Apps</span>
+          <span class="tab-label-short">Apps</span>
+        </button>
+        <button class="tab-btn" data-tab="repos" title="Patch Repositories">
+          <span class="material-symbols-rounded tab-icon">source</span>
+          <span class="tab-label-full">Patch Repos</span>
+          <span class="tab-label-short">Repos</span>
+        </button>
+        <button class="tab-btn" data-tab="settings" title="Settings & Tunnels">
+          <span class="material-symbols-rounded tab-icon">settings</span>
+          <span class="tab-label-full">Settings & Tunnels</span>
+          <span class="tab-label-short">Settings</span>
+        </button>
+        <button class="tab-btn" data-tab="files" id="tab-btn-files" title="Browse Patched APKs">
+          <span class="material-symbols-rounded tab-icon">folder_open</span>
+          <span class="tab-label-full">Browse APKs</span>
+          <span class="tab-label-short">APKs</span>
+        </button>
+      </div>
+
+      <div class="search-input-wrap" id="apps-search-wrap">
+        <span class="material-symbols-rounded search-icon">search</span>
+        <input type="text" id="apps-search-input" class="search-input" placeholder="Search configured apps...">
+      </div>
+    </section>
+
+    <!-- TAB 1: Configured Applications -->
+    <div id="tab-content-apps">
+      <div class="apps-sub-header">
+        <div class="filter-pills-bar">
+          <button class="filter-pill active" data-app-filter="all" id="filter-btn-all">
+            <span class="pill-label-full">All Apps</span>
+            <span class="pill-label-short">All</span>
+            <span class="count-badge" id="count-all">0</span>
+          </button>
+          <button class="filter-pill" data-app-filter="active" id="filter-btn-active">
+            <span class="filter-dot dot-active"></span>
+            <span class="pill-label-full">Active Next Run</span>
+            <span class="pill-label-short">Active</span>
+            <span class="count-badge" id="count-active">0</span>
+          </button>
+          <button class="filter-pill" data-app-filter="disabled" id="filter-btn-disabled">
+            <span class="filter-dot dot-disabled"></span>
+            <span class="pill-label-full">Disabled</span>
+            <span class="pill-label-short">Disabled</span>
+            <span class="count-badge" id="count-disabled">0</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="apps-container" class="apps-grid">
+        <!-- Rendered by app.js -->
+        <div style="grid-column: 1/-1; text-align: center; padding: 48px; color: var(--text-dim);">
+          <span class="material-symbols-rounded" style="font-size: 36px; animation: spin 1s infinite linear;">sync</span>
+          <p style="margin-top: 12px;">Loading configured applications...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Global Patch Repositories -->
+    <div id="tab-content-repos" class="hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-display);">Global Upstream Repositories</h2>
+          <p style="font-size: 0.875rem; color: var(--text-muted);">Repositories searched for patches across all apps unless overridden.</p>
+        </div>
+        <button id="btn-add-repo" class="btn btn-primary btn-sm">
+          <span class="material-symbols-rounded">add_link</span>
+          <span>Add Repo URL</span>
+        </button>
+      </div>
+
+      <div id="repos-container" class="repos-grid">
+        <!-- Rendered by app.js -->
+      </div>
+    </div>
+
+    <!-- TAB 3: Settings & Tunnels -->
+    <div id="tab-content-settings" class="hidden">
+      
+      <!-- Section Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-display);">Settings & Tunnels</h2>
+          <p style="font-size: 0.875rem; color: var(--text-muted);">Configure build flags, automated schedules, delivery ingress tunnels, and email notifications.</p>
+        </div>
+        <button id="btn-reload-settings" class="btn btn-secondary btn-sm" title="Reload settings from disk" type="button">
+          <span class="material-symbols-rounded">refresh</span>
+          <span>Reload</span>
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 24px; max-width: 900px;">
+
+        <!-- CARD 1: Build & Execution Configuration -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="material-symbols-rounded" style="color: var(--primary-cyan); font-size: 22px;">settings_system_daydream</span>
+              <h3 style="font-size: 1.125rem; font-family: var(--font-display); font-weight: 600;">System & Build Configuration</h3>
+            </div>
+            <span class="badge badge-info" style="font-size: 0.75rem;">config.yaml</span>
+          </div>
+
+          <div class="settings-grid-3" style="margin-bottom: 20px;">
+            
+            <!-- Architecture -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="setting-arch">Target Architecture</label>
+              <select id="setting-arch" class="form-control">
+                <option value="arm64-v8a">arm64-v8a (64-bit ARM • Modern Phones)</option>
+                <option value="armeabi-v7a">armeabi-v7a (32-bit ARM • Legacy Devices)</option>
+                <option value="x86_64">x86_64 (64-bit Intel/AMD • Emulators)</option>
+                <option value="x86">x86 (32-bit Intel/AMD • Emulators)</option>
+                <option value="all">all (Universal / Multi-Architecture)</option>
+              </select>
+              <div class="form-subtext">ABIs to keep when patching APK binaries.</div>
+            </div>
+
+            <!-- Timezone -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="setting-timezone">System Timezone (TZ)</label>
+              <input type="text" id="setting-timezone" class="form-control" list="tz-suggestions" placeholder="e.g. UTC">
+              <datalist id="tz-suggestions">
+                <option value="America/Mexico_City">
+                <option value="America/New_York">
+                <option value="America/Chicago">
+                <option value="America/Los_Angeles">
+                <option value="UTC">
+                <option value="Europe/London">
+                <option value="Europe/Berlin">
+                <option value="Asia/Tokyo">
+                <option value="Asia/Shanghai">
+              </datalist>
+              <div class="form-subtext">Used for scheduled run times and timestamps.</div>
+            </div>
+
+            <!-- Daily Schedule Time -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="setting-schedule-time">Daily Scheduled Run Time</label>
+              <input type="time" id="setting-schedule-time" class="form-control" value="03:00">
+              <div class="form-subtext">Daily automated execution trigger (HH:MM).</div>
+            </div>
+
+          </div>
+
+          <!-- Retention & Storage Limits Grid -->
+          <div class="settings-grid-3" style="margin-bottom: 20px;">
+            
+            <!-- Max Logs Retention -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="setting-max-logs">Max Logs Retention</label>
+              <input type="number" id="setting-max-logs" class="form-control" min="1" step="1" value="5" placeholder="5">
+              <div class="form-subtext">Number of execution log files to keep in logs/.</div>
+            </div>
+
+            <!-- Max Original Packages Retention -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label class="form-label" for="setting-max-original-packages" style="margin-bottom: 0;">Max Original Packages</label>
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="setting-max-original-enable" style="accent-color: var(--primary-cyan); width: 14px; height: 14px; cursor: pointer;">
+                  <span>Enable limit</span>
+                </label>
+              </div>
+              <input type="number" id="setting-max-original-packages" class="form-control" min="1" step="1" placeholder="None (Keep all)">
+              <div class="form-subtext">Original APK versions kept in apps/original/. Leave disabled or empty for None (unlimited).</div>
+            </div>
+
+            <!-- Max Patched Packages Retention -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label class="form-label" for="setting-max-patched-packages" style="margin-bottom: 0;">Max Patched Packages</label>
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="setting-max-patched-enable" style="accent-color: var(--primary-cyan); width: 14px; height: 14px; cursor: pointer;">
+                  <span>Enable limit</span>
+                </label>
+              </div>
+              <input type="number" id="setting-max-patched-packages" class="form-control" min="1" step="1" placeholder="None (Keep all)">
+              <div class="form-subtext">Patched APK releases kept in apps/patched/. Leave disabled or empty for None (unlimited).</div>
+            </div>
+
+          </div>
+
+          <!-- Toggles Grid -->
+          <div class="toggles-grid" style="margin-bottom: 20px;">
+            
+            <!-- Strip Libs Switch -->
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">Strip Native Libraries</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Remove unused ABIs to minimize APK size</div>
+              </div>
+              <label class="switch" style="margin-left: 12px;">
+                <input type="checkbox" id="setting-striplibs" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <!-- Low Spec Mode Switch -->
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">Low-Spec Mode</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Reduces heap/thread limits for low RAM systems</div>
+              </div>
+              <label class="switch" style="margin-left: 12px;">
+                <input type="checkbox" id="setting-lowspec" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <!-- Run on Startup Switch -->
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">Run on Startup</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Triggers initial run when container starts</div>
+              </div>
+              <label class="switch" style="margin-left: 12px;">
+                <input type="checkbox" id="setting-run-on-startup">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btn-save-system-settings" class="btn btn-primary btn-sm" type="button">
+              <span class="material-symbols-rounded">save</span>
+              <span>Save System Settings</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- CARD 2: Email Notifications Dispatcher -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="material-symbols-rounded" style="color: #38bdf8; font-size: 22px;">mail</span>
+              <h3 style="font-size: 1.125rem; font-family: var(--font-display); font-weight: 600;">Email Dispatcher & Build Reports</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="email-status-badge" class="badge badge-success">Enabled</span>
+              <span class="badge badge-neutral" style="font-size: 0.75rem;">config.yaml</span>
+            </div>
+          </div>
+
+          <!-- Email Quick Info Grid -->
+          <div class="email-info-grid" style="margin-bottom: 20px;">
+            <div style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">SMTP Server</div>
+              <div id="email-card-server" style="font-size: 0.9375rem; font-weight: 600; margin-top: 4px; font-family: var(--font-mono); color: var(--text-main);">smtp.gmail.com:587</div>
+            </div>
+
+            <div style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">Sender Display</div>
+              <div id="email-card-sender" style="font-size: 0.9375rem; font-weight: 600; margin-top: 4px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Morphe Patcher</div>
+            </div>
+
+            <div style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">Recipients</div>
+              <div id="email-card-recipients" style="font-size: 0.9375rem; font-weight: 600; margin-top: 4px; color: var(--primary-cyan);">1 recipient</div>
+            </div>
+
+            <div style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">Layout Mode</div>
+              <div id="email-card-layout" style="font-size: 0.9375rem; font-weight: 600; margin-top: 4px; color: var(--text-main);">Auto (threshold: 15)</div>
+            </div>
+          </div>
+
+          <!-- Email Action Buttons -->
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <p style="font-size: 0.8125rem; color: var(--text-muted); margin: 0;">
+              Configure SMTP server, security protocols, recipients, layout mode, and email alerts.
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <a href="/report" target="_blank" id="btn-view-build-report" class="btn btn-secondary btn-sm" title="View latest HTML build report in a new tab" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <span class="material-symbols-rounded">description</span>
+                <span>View Build Report</span>
+              </a>
+              <button id="btn-email-test-quick" class="btn btn-secondary btn-sm" type="button" title="Send a test verification email">
+                <span class="material-symbols-rounded">send</span>
+                <span>Send Test Email</span>
+              </button>
+              <button id="btn-open-email-wizard" class="btn btn-primary btn-sm" type="button">
+                <span class="material-symbols-rounded">tune</span>
+                <span>Edit Email Settings</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 4: Patched APK File Browser -->
+    <div id="tab-content-files" class="hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-display);">Patched APK Directory</h2>
+          <p style="font-size: 0.875rem; color: var(--text-muted);">Browse generated APKs, version releases, and patch audit results in apps/patched/.</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="btn-files-refresh" class="btn btn-secondary btn-sm" title="Refresh directory listing" type="button">
+            <span class="material-symbols-rounded">refresh</span>
+            <span>Refresh</span>
+          </button>
+          <button id="btn-files-root" class="btn btn-secondary btn-sm" title="Return to root directory" type="button">
+            <span class="material-symbols-rounded">home</span>
+            <span>Root</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- File Browser Card -->
+      <div class="card" style="padding: 0; overflow: hidden; border: 1px solid var(--border-subtle); background: var(--bg-surface);">
+        <!-- Explorer Header Bar -->
+        <div class="files-header-bar">
+          <!-- Breadcrumbs -->
+          <div id="files-breadcrumbs" style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; flex-wrap: wrap; font-family: var(--font-mono);">
+            <span style="color: var(--text-dim);"><span class="material-symbols-rounded" style="font-size: 16px; vertical-align: middle;">folder</span> root</span>
+          </div>
+
+          <!-- Realtime Search in current directory -->
+          <div class="files-search-wrap">
+            <input type="text" id="files-filter-input" class="search-input" placeholder="Filter files or folders..." style="padding: 6px 12px 6px 32px; font-size: 0.8125rem; width: 100%; box-sizing: border-box;">
+            <span class="material-symbols-rounded" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--text-dim); pointer-events: none;">search</span>
+          </div>
+        </div>
+
+        <!-- Files & Folders Table -->
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+            <thead>
+              <tr style="background: var(--bg-surface-elevated); border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                <th style="padding: 10px 16px; width: 36px;"></th>
+                <th style="padding: 10px 16px;">Name</th>
+                <th style="padding: 10px 16px;">Size / Type</th>
+                <th class="col-mtime" style="padding: 10px 16px;">Modified</th>
+                <th style="padding: 10px 16px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="files-table-body">
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 48px; color: var(--text-dim);">
+                  <span class="material-symbols-rounded" style="font-size: 28px; animation: spin 1s infinite linear;">sync</span>
+                  <div style="margin-top: 8px;">Loading directory contents...</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer Stats Bar -->
+        <div id="files-footer-bar" style="padding: 10px 20px; background: var(--bg-surface-elevated); border-top: 1px solid var(--border-subtle); font-size: 0.8125rem; color: var(--text-dim); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <span id="files-stat-counts">0 items</span>
+          <span id="files-stat-size">Total: 0 B</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Site Footer with Build Version Code -->
+  <footer style="margin-top: 40px; padding: 24px 0 36px 0; border-top: 1px solid var(--border-subtle); color: var(--text-dim); font-size: 0.8125rem;">
+    <div class="container" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="material-symbols-rounded" style="color: var(--primary-cyan); font-size: 18px;">build_circle</span>
+        <span style="font-weight: 600; color: var(--text-main);">AutoMorph Control Center</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <button id="site-update-btn" class="badge badge-warning badge-pulse hidden" style="border: 1px solid rgba(245, 158, 11, 0.4); cursor: pointer; align-items: center; gap: 6px; padding: 4px 10px; font-weight: 600; font-family: var(--font-sans);" title="Docker image update available">
+          <span class="material-symbols-rounded" style="font-size: 15px;">arrow_circle_up</span>
+          <span id="site-update-btn-text">Update Available</span>
+        </button>
+        <div id="site-version-tag" style="display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.75rem; background: var(--bg-surface-elevated); padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); cursor: pointer;" title="View version & update details">
+          <span class="material-symbols-rounded" style="font-size: 14px; color: var(--primary-cyan);">tag</span>
+          <span>Version:</span>
+          <span id="site-version-val" style="color: var(--primary-cyan); font-weight: 600;">v0.01</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================
+       MODAL: Docker Image Update Modal
+       ======================================================================== -->
+  <div id="modal-docker-update" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="material-symbols-rounded" style="color: var(--primary-cyan);">rocket_launch</span>
+          <span>AutoMorph Release Update</span>
+          <span id="update-modal-branch-badge" class="badge badge-info" style="font-family: var(--font-mono);">dev</span>
+          <span id="update-modal-type-badge" class="badge badge-warning hidden" style="font-family: var(--font-mono); font-size: 0.6875rem;">Pre-release</span>
+        </div>
+        <button id="btn-update-modal-close" class="btn btn-secondary btn-sm" title="Close modal">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
+        <!-- Status Banner -->
+        <div id="update-modal-banner" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--color-warning);">
+          <span id="update-modal-banner-icon" class="material-symbols-rounded" style="font-size: 20px;">new_releases</span>
+          <span id="update-modal-banner-text" style="font-size: 0.875rem; font-weight: 500;">A new release is available to pull!</span>
+        </div>
+
+        <!-- Comparison Table / Grid -->
+        <div class="update-compare-grid">
+          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Currently Running</div>
+            <div id="update-modal-current-build" style="font-family: var(--font-mono); font-weight: 600; color: var(--text-main); font-size: 0.9375rem;">—</div>
+            <div id="update-modal-current-sha" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); margin-top: 2px;">—</div>
+          </div>
+          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.75rem; color: var(--primary-cyan); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Latest Published Release</div>
+            <div id="update-modal-latest-build" style="font-family: var(--font-mono); font-weight: 600; color: var(--primary-cyan); font-size: 0.9375rem;">—</div>
+            <div id="update-modal-latest-sha" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); margin-top: 2px;">—</div>
+          </div>
+        </div>
+
+        <!-- Release Notes Box -->
+        <div id="update-modal-commit-box" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="material-symbols-rounded" style="font-size: 16px; color: var(--primary-cyan);">article</span>
+              <span id="update-modal-release-title" style="font-size: 0.875rem; color: var(--text-main); font-weight: 600;">Release Overview</span>
+            </div>
+            <a id="update-modal-commit-link" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: var(--primary-cyan); display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+              <span>View on GitHub</span>
+              <span class="material-symbols-rounded" style="font-size: 14px;">open_in_new</span>
+            </a>
+          </div>
+          <pre id="update-modal-commit-msg" style="font-family: var(--font-sans); font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin: 0; max-height: 140px; overflow-y: auto; background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-xs); border: 1px solid var(--border-subtle);">—</pre>
+          <div id="update-modal-published-at" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px;">—</div>
+        </div>
+
+        <!-- Host Upgrade Snippet -->
+        <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px 14px;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 6px;">To update your container on the host:</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-xs); padding: 8px 12px; font-family: var(--font-mono); font-size: 0.8125rem;">
+            <span id="update-modal-cmd" style="color: var(--primary-cyan); user-select: all; word-break: break-all;">docker compose pull &amp;&amp; docker compose up -d</span>
+            <button id="btn-update-copy-cmd" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem; margin-left: 8px;" title="Copy to clipboard">
+              <span class="material-symbols-rounded" style="font-size: 14px;">content_copy</span>
+              <span>Copy</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error / Cooldown Notice Box -->
+        <div id="update-modal-error-box" style="display: none; font-size: 0.8125rem; padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--color-danger);">
+          <span id="update-modal-error-text"></span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <span id="update-modal-checked-at" style="font-size: 0.75rem; color: var(--text-dim);">Checked: —</span>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-update-check-again" class="btn btn-secondary btn-sm" title="Check GitHub Actions for updates now">
+            <span class="material-symbols-rounded" id="icon-update-check-again" style="font-size: 16px;">refresh</span>
+            <span id="text-update-check-again">Check Again</span>
+          </button>
+          <button id="btn-update-modal-done" class="btn btn-primary btn-sm">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 1: Real-Time SSE Terminal Modal
+       ======================================================================== -->
+  <div id="modal-terminal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="material-symbols-rounded" style="color: var(--primary-cyan);">terminal</span>
+          <span>Pipeline Execution Console</span>
+          <span id="term-status-badge" class="badge badge-pulse badge-info">Active</span>
+          <span id="term-trigger-badge" class="badge badge-warning" style="display: none;"></span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <a id="btn-term-report" href="/report" target="_blank" class="btn btn-secondary btn-sm" title="Open full HTML build report" style="display: none; text-decoration: none; align-items: center; gap: 4px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">description</span>
+            <span>Report</span>
+          </a>
+          <button id="btn-term-stop" class="btn btn-danger btn-sm" title="Stop execution" style="display: none;">
+            <span class="material-symbols-rounded">stop_circle</span>
+            <span>Stop</span>
+          </button>
+          <button id="btn-term-copy" class="btn btn-secondary btn-sm" title="Copy console logs">
+            <span class="material-symbols-rounded">content_copy</span>
+            <span>Copy</span>
+          </button>
+          <button id="btn-term-close" class="btn btn-secondary btn-sm" title="Close console modal">
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="terminal-output" class="terminal-body">
+        <div class="terminal-line log-info">[*] Initializing real-time pipeline connection...</div>
+      </div>
+
+      <div class="modal-footer">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--text-muted); cursor: pointer;">
+          <input type="checkbox" id="term-autoscroll" checked>
+          <span>Auto-scroll terminal output</span>
+        </label>
+        <span id="term-time-elapsed" style="font-size: 0.8125rem; color: var(--text-dim); font-family: var(--font-mono);">Elapsed: 0s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 2: "Add Package" Multi-Step Wizard Modal
+       ======================================================================== -->
+  <div id="modal-wizard" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 720px;">
+      
+      <!-- Wizard Step Indicator Header -->
+      <div class="wizard-steps-header">
+        <div class="step-indicator active" id="wiz-step-ind-1">
+          <span class="step-num">1</span>
+          <span>Select Package</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="wiz-step-ind-2">
+          <span class="step-num">2</span>
+          <span>Suggested Repos</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="wiz-step-ind-3">
+          <span class="step-num">3</span>
+          <span>Configure Patches</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="wiz-step-ind-4">
+          <span class="step-num">4</span>
+          <span>Rules & Aliases</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="wiz-step-ind-5">
+          <span class="step-num">5</span>
+          <span>Review & Save</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Package Selection -->
+      <div id="wiz-step-1" class="wizard-content">
+        <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 8px;">Choose an Android Application</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 16px;">
+          Search official Morphe community patches or enter a custom package ID for universal patches.
+        </p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+          <div class="search-input-wrap" style="flex: 1; max-width: 100%;">
+            <span class="material-symbols-rounded search-icon">search</span>
+            <input type="text" id="wiz-search-input" class="search-input" placeholder="Search apps (e.g. Reddit, Bandcamp, Twitter)...">
+          </div>
+          <button id="btn-wiz-refresh-catalog" class="btn btn-secondary btn-sm" type="button" title="Refresh Morphe catalog">
+            <span class="material-symbols-rounded">sync</span>
+          </button>
+          <button id="btn-wiz-toggle-custom" class="btn btn-secondary btn-sm" type="button">
+            <span class="material-symbols-rounded">edit</span>
+            <span>Custom Package</span>
+          </button>
+        </div>
+
+        <!-- Custom Package Form Input (Conditional) -->
+        <div id="wiz-custom-pkg-wrap" class="form-group hidden" style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <label class="form-label" for="wiz-custom-pkg-input">Custom Application Package ID</label>
+          <input type="text" id="wiz-custom-pkg-input" class="form-control" placeholder="com.example.application">
+          <div class="form-subtext">Use this for apps not in the Morphe catalog where you intend to apply universal patches.</div>
+        </div>
+
+        <!-- Catalog Search Results List -->
+        <div id="wiz-catalog-results" class="catalog-search-results">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+
+      <!-- Step 2: Suggested Repos -->
+      <div id="wiz-step-2" class="wizard-content hidden">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 1.125rem; font-family: var(--font-display);">Patch Repositories</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">
+              Targeting: <strong id="wiz-selected-pkg-label" style="color: var(--primary-cyan);">package.id</strong>
+            </p>
+          </div>
+        </div>
+
+        <div class="repo-selection-toolbar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-rounded" style="color: var(--primary-cyan); font-size: 18px;">checklist</span>
+            <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Quick Select:</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none;">
+              <input type="checkbox" id="wiz-toggle-all-suggested" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
+              <span>Recommended Repositories <span id="wiz-suggested-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
+            </label>
+            <div style="width: 1px; height: 16px; background: var(--border-subtle);"></div>
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none;">
+              <input type="checkbox" id="wiz-toggle-all-global" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
+              <span>Other Available Repositories <span id="wiz-global-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div id="wiz-suggested-repos-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+            <!-- Populated by app.js -->
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">Add Other / Universal Patch Repo</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="url" id="wiz-custom-repo-input" class="form-control" placeholder="https://github.com/user/custom-patches">
+            <button id="btn-wiz-add-custom-repo" class="btn btn-secondary btn-sm" type="button">Add</button>
+          </div>
+          <div class="form-subtext">Specify any GitHub or GitLab repository to apply universal or experimental patches.</div>
+        </div>
+      </div>
+
+      <!-- Step 3: Configure Patches -->
+      <div id="wiz-step-3" class="wizard-content hidden">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <h3 style="font-size: 1.125rem; font-family: var(--font-display);">Configure Patches</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">
+              Select enabled patches for <strong id="wiz-patches-pkg-label" style="color: var(--primary-cyan);">package</strong>.
+            </p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" id="btn-wiz-download-options" class="btn btn-secondary btn-sm" title="Check and load available patches for this package">
+              <span class="material-symbols-rounded">visibility</span>
+              <span>See Available Patches</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; background: var(--bg-surface-elevated); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px;">
+            <div class="search-input-wrap" style="flex: 1; max-width: 220px;">
+              <span class="material-symbols-rounded search-icon">search</span>
+              <input type="text" id="wiz-patch-search" class="search-input" placeholder="Search patches...">
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="wiz-patch-repo-filter" style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Repo:</label>
+              <select id="wiz-patch-repo-filter" class="form-control" style="width: auto; padding: 4px 8px; font-size: 0.8125rem;">
+                <option value="all">All Repositories</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="patch-filter-pill active" data-wiz-filter="all">All</button>
+              <button type="button" class="patch-filter-pill" data-wiz-filter="enabled">Enabled</button>
+              <button type="button" class="patch-filter-pill" data-wiz-filter="disabled">Disabled</button>
+            </div>
+            <div style="width: 1px; height: 18px; background: var(--border-subtle); margin: 0 4px;"></div>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="patch-filter-pill active" data-wiz-scope="all">All Scope</button>
+              <button type="button" class="patch-filter-pill" data-wiz-scope="app">App-Specific</button>
+              <button type="button" class="patch-filter-pill" data-wiz-scope="universal">Universal</button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="btn-wiz-patches-defaults" class="btn btn-secondary btn-sm" title="Restore official default selections">
+              <span class="material-symbols-rounded">restart_alt</span>
+              <span>Select Defaults</span>
+            </button>
+            <button type="button" id="btn-wiz-patches-enable-all" class="btn btn-secondary btn-sm">Enable All</button>
+            <button type="button" id="btn-wiz-patches-disable-all" class="btn btn-secondary btn-sm">Disable All</button>
+          </div>
+        </div>
+
+        <!-- Patch count summary -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8125rem; color: var(--text-dim);">
+          <span id="wiz-patches-count-label">Loading patches...</span>
+          <span id="wiz-patches-repo-label" style="font-family: var(--font-mono);"></span>
+        </div>
+
+        <!-- Patch list -->
+        <div id="wiz-patches-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+
+      <!-- Step 4: Patch Aliases -->
+      <div id="wiz-step-4" class="wizard-content hidden">
+        <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 8px;">Patch Alias Configuration</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 16px;">
+          Configure specific patch name mappings across multiple repositories.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Patch Aliases (Optional)</label>
+          <div class="form-subtext" style="margin-bottom: 8px;">Map alias names to matching patches across repositories (e.g. 'Unlock Premium' matching patches in Repo 1 and Repo 2):</div>
+          <div id="wiz-aliases-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Populated by app.js -->
+          </div>
+          <button id="btn-wiz-add-alias" class="btn btn-secondary btn-sm" type="button" style="margin-top: 8px;">
+            <span class="material-symbols-rounded">add</span>
+            <span>Add Alias Mapping</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 5: Review & Confirm -->
+      <div id="wiz-step-5" class="wizard-content hidden">
+        <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 8px;">Review Configuration</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 14px;">
+          The following block will be added to <code>config.yaml</code> and corresponding patch options files will be generated.
+        </p>
+
+        <div class="yaml-preview-box" id="wiz-yaml-preview"># Generating preview...</div>
+      </div>
+
+      <!-- Wizard Modal Navigation Footer -->
+      <div class="modal-footer">
+        <button id="btn-wiz-back" class="btn btn-secondary btn-sm" type="button" disabled>
+          <span class="material-symbols-rounded">arrow_back</span>
+          <span>Back</span>
+        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-wiz-cancel" class="btn btn-secondary btn-sm" type="button">Cancel</button>
+          <button id="btn-wiz-next" class="btn btn-primary btn-sm" type="button">
+            <span>Next</span>
+            <span class="material-symbols-rounded">arrow_forward</span>
+          </button>
+          <button id="btn-wiz-save" class="btn btn-primary btn-sm hidden" type="button">
+            <span class="material-symbols-rounded">save</span>
+            <span>Save to config.yaml</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 3: Application Configuration & Patch Editor Modal
+       ======================================================================== -->
+  <div id="modal-edit-app" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 820px; max-height: 90vh; display: flex; flex-direction: column;">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div id="edit-app-avatar" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--bg-surface-elevated); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-subtle);">
+            <span class="material-symbols-rounded">android</span>
+          </div>
+          <div>
+            <div class="modal-title" style="margin-bottom: 2px;">
+              <span id="edit-app-title">Configure Application</span>
+            </div>
+            <div id="edit-app-pkg" style="font-size: 0.8125rem; font-family: var(--font-mono); color: var(--primary-cyan);">com.example.app</div>
+          </div>
+        </div>
+        <button id="btn-edit-close" class="btn btn-secondary btn-sm btn-icon-only" title="Close">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Tab Navigation -->
+      <div class="modal-tab-nav" style="padding: 0 24px; margin-top: 12px; margin-bottom: 16px;">
+        <button class="modal-tab-item active" data-edit-tab="repos">
+          <span class="material-symbols-rounded" style="font-size: 16px;">source</span>
+          <span>Patch Repositories</span>
+        </button>
+        <button class="modal-tab-item" data-edit-tab="patches">
+          <span class="material-symbols-rounded" style="font-size: 16px;">tune</span>
+          <span>Patches & Options</span>
+        </button>
+        <button class="modal-tab-item" data-edit-tab="rules">
+          <span class="material-symbols-rounded" style="font-size: 16px;">alt_route</span>
+          <span>Patch Aliases</span>
+        </button>
+      </div>
+
+      <!-- Modal Body / Tab Contents (Scrollable) -->
+      <div class="modal-scroll-body" style="padding: 0 24px 16px 24px; overflow-y: auto; flex: 1;">
+        
+        <!-- Tab Content 1: Repositories -->
+        <div id="edit-tab-content-repos">
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 14px;">
+            Choose upstream repositories to source patches from for this application.
+          </p>
+
+          <!-- Master Selection Bar for Repositories -->
+          <div class="repo-selection-toolbar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="material-symbols-rounded" style="color: var(--primary-cyan); font-size: 18px;">checklist</span>
+              <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Quick Select:</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none;">
+                <input type="checkbox" id="edit-toggle-all-suggested" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
+                <span>Recommended Repositories <span id="edit-suggested-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
+              </label>
+              <div style="width: 1px; height: 16px; background: var(--border-subtle);"></div>
+              <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none;">
+                <input type="checkbox" id="edit-toggle-all-global" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
+                <span>Other Available Repositories <span id="edit-global-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div id="edit-suggested-repos-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label">Add Custom Patch Repository</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="url" id="edit-custom-repo-input" class="form-control" placeholder="https://github.com/user/custom-patches">
+              <button id="btn-edit-add-custom-repo" class="btn btn-secondary btn-sm" type="button">Add</button>
+            </div>
+            <div class="form-subtext">Add any GitHub or GitLab repository to patch this app.</div>
+          </div>
+        </div>
+
+        <!-- Tab Content 2: Patches & Options -->
+        <div id="edit-tab-content-patches" class="hidden">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-main);">Repo Source:</span>
+              <select id="edit-patch-repo-filter" class="form-control" style="width: auto; padding: 4px 10px; font-size: 0.875rem;">
+                <option value="all">All Repositories</option>
+                <!-- Options populated by app.js -->
+              </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="edit-patch-count-label" style="font-size: 0.8125rem; color: var(--text-dim);">0 of 0 patches enabled</span>
+              <button type="button" id="btn-edit-download-options" class="btn btn-secondary btn-sm" title="Check and load available patches for this package">
+                <span class="material-symbols-rounded">visibility</span>
+                <span>See Available Patches</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Patch Filter Toolbar -->
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; background: var(--bg-surface-elevated); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <div class="search-input-wrap" style="flex: 1; max-width: 240px;">
+              <span class="material-symbols-rounded search-icon">search</span>
+              <input type="text" id="edit-patch-search" class="search-input" placeholder="Search patches...">
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="patch-filter-pill active" data-edit-filter="all">All</button>
+                <button type="button" class="patch-filter-pill" data-edit-filter="enabled">Enabled</button>
+                <button type="button" class="patch-filter-pill" data-edit-filter="disabled">Disabled</button>
+              </div>
+              <div style="width: 1px; height: 18px; background: var(--border-subtle); margin: 0 4px;"></div>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="patch-filter-pill active" data-edit-scope="all">All Scope</button>
+                <button type="button" class="patch-filter-pill" data-edit-scope="app">App-Specific</button>
+                <button type="button" class="patch-filter-pill" data-edit-scope="universal">Universal</button>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" id="btn-edit-patches-defaults" class="btn btn-secondary btn-sm" title="Restore official defaults">
+                <span class="material-symbols-rounded">restart_alt</span>
+                <span>Select Defaults</span>
+              </button>
+              <button type="button" id="btn-edit-patches-enable-all" class="btn btn-secondary btn-sm">Enable All</button>
+              <button type="button" id="btn-edit-patches-disable-all" class="btn btn-secondary btn-sm">Disable All</button>
+            </div>
+          </div>
+
+          <!-- Patches List -->
+          <div id="edit-patches-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Tab Content 3: Patch Aliases -->
+        <div id="edit-tab-content-rules" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Patch Aliases (Optional)</label>
+            <div class="form-subtext" style="margin-bottom: 8px;">Map alias names to matching patches across repositories (e.g. 'Unlock Premium' matching patches in Repo 1 and Repo 2):</div>
+            <div id="edit-aliases-list" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Populated by app.js -->
+            </div>
+            <button id="btn-edit-add-alias" class="btn btn-secondary btn-sm" type="button" style="margin-top: 8px;">
+              <span class="material-symbols-rounded">add</span>
+              <span>Add Alias Mapping</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer" style="padding: 16px 24px;">
+        <div id="edit-modal-status-text" style="font-size: 0.8125rem; color: var(--text-dim);"></div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-edit-cancel" class="btn btn-secondary btn-sm" type="button">Cancel</button>
+          <button id="btn-edit-save" class="btn btn-primary btn-sm" type="button">
+            <span class="material-symbols-rounded">save</span>
+            <span>Save Changes</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discover Available Patches Verbose Modal -->
+  <div id="modal-patch-fetch" class="modal-backdrop" style="z-index: 150;">
+    <div class="modal-card" style="max-width: 680px; max-height: 85vh; display: flex; flex-direction: column;">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="material-symbols-rounded" style="color: var(--primary-cyan); font-size: 24px;">travel_explore</span>
+          <div>
+            <div style="font-size: 1rem; font-weight: 700;">Discover Available Patches</div>
+            <div id="patch-fetch-modal-pkg" style="font-size: 0.75rem; color: var(--text-dim); font-weight: 400; font-family: var(--font-mono);">com.example</div>
+          </div>
+        </div>
+        <button id="btn-patch-fetch-close" class="btn btn-secondary btn-sm btn-icon-only" title="Close modal" type="button">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-scroll-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- Live Status Card -->
+        <div id="patch-fetch-status-card" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+          <div id="patch-fetch-spinner">
+            <span class="material-symbols-rounded" style="font-size: 28px; color: var(--primary-cyan); animation: spin 1s infinite linear;">sync</span>
+          </div>
+          <div style="flex: 1;">
+            <div id="patch-fetch-status-title" style="font-weight: 600; font-size: 0.9375rem;">Checking Repositories...</div>
+            <div id="patch-fetch-status-subtitle" style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">Scanning server options, cached patch bundles, and releases.</div>
+          </div>
+        </div>
+
+        <!-- Multi-tier Stage Indicators -->
+        <div class="patch-fetch-tiers-grid">
+          <div id="step-tier-cache" style="padding: 10px 12px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); text-align: center;">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">Tier 1</div>
+            <div style="font-size: 0.8125rem; font-weight: 600; margin-top: 2px;">Local Cache</div>
+            <div id="step-tier-cache-badge" class="badge badge-neutral" style="margin-top: 4px; font-size: 0.6875rem;">Waiting</div>
+          </div>
+          <div id="step-tier-bundle" style="padding: 10px 12px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); text-align: center;">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">Tier 2</div>
+            <div style="font-size: 0.8125rem; font-weight: 600; margin-top: 2px;">Morphe CLI</div>
+            <div id="step-tier-bundle-badge" class="badge badge-neutral" style="margin-top: 4px; font-size: 0.6875rem;">Waiting</div>
+          </div>
+          <div id="step-tier-network" style="padding: 10px 12px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); text-align: center;">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">Tier 3</div>
+            <div style="font-size: 0.8125rem; font-weight: 600; margin-top: 2px;">Network / Fallback</div>
+            <div id="step-tier-network-badge" class="badge badge-neutral" style="margin-top: 4px; font-size: 0.6875rem;">Waiting</div>
+          </div>
+        </div>
+
+        <!-- Terminal Execution Log Console -->
+        <div style="display: flex; flex-direction: column; flex: 1; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; background: #090a0d;">
+          <div style="padding: 8px 14px; background: rgba(255, 255, 255, 0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.06); display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-dim); font-family: var(--font-mono); display: flex; align-items: center; gap: 6px;">
+              <span class="material-symbols-rounded" style="font-size: 14px; color: var(--primary-cyan);">terminal</span>
+              <span>EXECUTION LOG</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button id="btn-patch-fetch-copy-log" class="btn btn-secondary btn-sm" type="button" style="padding: 2px 8px; font-size: 0.6875rem; height: 24px;">
+                <span class="material-symbols-rounded" style="font-size: 13px;">content_copy</span>
+                <span>Copy</span>
+              </button>
+              <button id="btn-patch-fetch-clear-log" class="btn btn-secondary btn-sm" type="button" style="padding: 2px 8px; font-size: 0.6875rem; height: 24px;">
+                <span class="material-symbols-rounded" style="font-size: 13px;">clear_all</span>
+                <span>Clear</span>
+              </button>
+            </div>
+          </div>
+          <div id="patch-fetch-log-console" style="padding: 12px 14px; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.5; color: #d1d5db; overflow-y: auto; max-height: 240px; min-height: 140px; white-space: pre-wrap; word-break: break-all;">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer" style="padding: 14px 24px;">
+        <div id="patch-fetch-footer-summary" style="font-size: 0.8125rem; color: var(--text-dim);"></div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-patch-fetch-retry" class="btn btn-secondary btn-sm" type="button" style="display: none;">
+            <span class="material-symbols-rounded" style="font-size: 15px;">refresh</span>
+            <span>Force Re-download</span>
+          </button>
+          <button id="btn-patch-fetch-done" class="btn btn-primary btn-sm" type="button">
+            <span>Done</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 4: Email Dispatcher Configuration Wizard
+       ======================================================================== -->
+  <div id="modal-email-wizard" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 760px; max-height: 90vh; display: flex; flex-direction: column;">
+      
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="material-symbols-rounded" style="color: #38bdf8;">tune</span>
+          <span>Email Dispatcher Setup Wizard</span>
+        </div>
+        <button id="btn-email-wiz-close" class="btn btn-secondary btn-sm btn-icon-only" title="Close" type="button">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <!-- Wizard Step Indicator Header -->
+      <div class="wizard-steps-header" style="overflow-x: auto; padding: 12px 20px; border-bottom: 1px solid var(--border-subtle);">
+        <div class="step-indicator active" id="email-wiz-ind-1">
+          <span class="step-num">1</span>
+          <span>Presets & Sender</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="email-wiz-ind-2">
+          <span class="step-num">2</span>
+          <span>Server & Security</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="email-wiz-ind-3">
+          <span class="step-num">3</span>
+          <span>Recipients & Subject</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="email-wiz-ind-4">
+          <span class="step-num">4</span>
+          <span>Layout & Options</span>
+        </div>
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--text-dim);">chevron_right</span>
+        <div class="step-indicator" id="email-wiz-ind-5">
+          <span class="step-num">5</span>
+          <span>Review & Test</span>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="modal-scroll-body" style="padding: 16px 24px; overflow-y: auto; flex: 1;">
+        
+        <!-- Step 1: General & Provider Preset -->
+        <div id="email-wiz-step-1" class="wizard-content">
+          <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">Email Dispatcher & Quick Presets</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
+            Enable automated build reports and select a preset to quickly configure your email provider.
+          </p>
+
+          <!-- Enable Switch Card -->
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
+            <div>
+              <div style="font-weight: 600; font-size: 0.9375rem;">Enable Email Notifications</div>
+              <div style="font-size: 0.8125rem; color: var(--text-muted);">Send HTML + text build reports upon pipeline completion</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="email-wiz-enabled" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+
+          <!-- Provider Quick Presets Grid -->
+          <label class="form-label" style="margin-bottom: 10px;">Quick-Setup Provider Presets</label>
+          <div class="email-wiz-presets-grid">
+            <button type="button" class="email-preset-btn active" data-preset="gmail" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--primary-cyan); border-radius: var(--radius-md); cursor: pointer; text-align: center; color: var(--text-main);">
+              <span class="material-symbols-rounded" style="color: #ea4335; font-size: 28px;">mail</span>
+              <span style="font-weight: 600; font-size: 0.875rem;">Gmail / Google</span>
+              <span style="font-size: 0.6875rem; color: var(--text-dim);">Port 587 (TLS)</span>
+            </button>
+            <button type="button" class="email-preset-btn" data-preset="outlook" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; text-align: center; color: var(--text-main);">
+              <span class="material-symbols-rounded" style="color: #0078d4; font-size: 28px;">forward_to_inbox</span>
+              <span style="font-weight: 600; font-size: 0.875rem;">Outlook / O365</span>
+              <span style="font-size: 0.6875rem; color: var(--text-dim);">Port 587 (TLS)</span>
+            </button>
+            <button type="button" class="email-preset-btn" data-preset="yahoo" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; text-align: center; color: var(--text-main);">
+              <span class="material-symbols-rounded" style="color: #6001d2; font-size: 28px;">mark_email_read</span>
+              <span style="font-weight: 600; font-size: 0.875rem;">Yahoo Mail</span>
+              <span style="font-size: 0.6875rem; color: var(--text-dim);">Port 465 (SSL)</span>
+            </button>
+            <button type="button" class="email-preset-btn" data-preset="custom" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; text-align: center; color: var(--text-main);">
+              <span class="material-symbols-rounded" style="color: #38bdf8; font-size: 28px;">dns</span>
+              <span style="font-weight: 600; font-size: 0.875rem;">Custom SMTP</span>
+              <span style="font-size: 0.6875rem; color: var(--text-dim);">Manual Config</span>
+            </button>
+          </div>
+
+          <!-- Sender Identity -->
+          <div class="email-wiz-grid-2">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="email-wiz-sender-name">Sender Display Name</label>
+              <input type="text" id="email-wiz-sender-name" class="form-control" placeholder="AutoMorph" value="AutoMorph">
+              <div class="form-subtext">The friendly name in email 'From' header.</div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="email-wiz-sender-email">Sender Email Address</label>
+              <input type="email" id="email-wiz-sender-email" class="form-control" placeholder="user@example.com">
+              <div class="form-subtext">Email address sending the reports.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: SMTP Connection & Security -->
+        <div id="email-wiz-step-2" class="wizard-content hidden">
+          <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">SMTP Server & Security Mode</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
+            Configure the outbound SMTP mail server hostname and socket encryption standard.
+          </p>
+
+          <div class="email-wiz-grid-2-1">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="email-wiz-smtp-server">SMTP Server Hostname</label>
+              <input type="text" id="email-wiz-smtp-server" class="form-control" placeholder="smtp.gmail.com" value="smtp.gmail.com">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="email-wiz-smtp-port">Port</label>
+              <input type="number" id="email-wiz-smtp-port" class="form-control" placeholder="587" value="587">
+            </div>
+          </div>
+
+          <label class="form-label" style="margin-bottom: 10px;">Encryption / Security Protocol</label>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px;">
+            <label style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;">
+              <input type="radio" name="email-wiz-security" value="tls" id="sec-tls" checked style="accent-color: var(--primary-cyan);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">STARTTLS (TLS)</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Standard on Port 587</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;">
+              <input type="radio" name="email-wiz-security" value="ssl" id="sec-ssl" style="accent-color: var(--primary-cyan);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">Direct SSL / TLS</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Standard on Port 465</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;">
+              <input type="radio" name="email-wiz-security" value="none" id="sec-none" style="accent-color: var(--primary-cyan);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">Plain / None</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Local Relay (Port 25)</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 3: Recipients & Subject -->
+        <div id="email-wiz-step-3" class="wizard-content hidden">
+          <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">Recipients & Subject Configuration</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
+            Specify who receives automated build notifications and customize the subject line prefix.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Notification Recipients</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="email" id="email-wiz-new-recipient" class="form-control" placeholder="user@example.com">
+              <button type="button" id="btn-email-wiz-add-recipient" class="btn btn-secondary btn-sm">
+                <span class="material-symbols-rounded">add</span>
+                <span>Add</span>
+              </button>
+            </div>
+            <div id="email-wiz-recipients-chips" style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 38px; padding: 8px 12px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+              <!-- Rendered as chips -->
+            </div>
+            <div class="form-subtext">Add one or more email addresses that should receive pipeline execution reports.</div>
+          </div>
+
+          <div class="form-group" style="margin-top: 18px;">
+            <label class="form-label" for="email-wiz-subject-prefix">Subject Line Prefix</label>
+            <input type="text" id="email-wiz-subject-prefix" class="form-control" value="[AutoMorph]">
+            <div class="form-subtext">
+              Preview: <strong id="email-wiz-subject-preview" style="color: var(--primary-cyan); font-family: var(--font-mono); font-size: 0.8125rem;">[AutoMorph] Build Report: 3 Patched</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Layout & Artifacts -->
+        <div id="email-wiz-step-4" class="wizard-content hidden">
+          <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">Email Formatting & Attachments</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
+            Fine-tune layout density, SHA-256 integrity checksums, and JSON build artifacts.
+          </p>
+
+          <label class="form-label" style="margin-bottom: 10px;">Email Layout Presentation Mode</label>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-weight: 600; font-size: 0.875rem;">Auto (Adaptive)</span>
+                <input type="radio" name="email-wiz-layout" value="auto" checked style="accent-color: var(--primary-cyan);">
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Switches to compact table if app count exceeds threshold</div>
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 6px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-weight: 600; font-size: 0.875rem;">Cards Layout</span>
+                <input type="radio" name="email-wiz-layout" value="cards" style="accent-color: var(--primary-cyan);">
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Full visual cards with download buttons and patch chips</div>
+            </label>
+
+            <label style="display: flex; flex-direction: column; gap: 6px; padding: 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-weight: 600; font-size: 0.875rem;">Compact Table</span>
+                <input type="radio" name="email-wiz-layout" value="compact" style="accent-color: var(--primary-cyan);">
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Concise rows to prevent email clipping in Gmail mobile</div>
+            </label>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label class="form-label" for="email-wiz-compact-threshold">Compact Mode App Count Threshold</label>
+            <input type="number" id="email-wiz-compact-threshold" class="form-control" value="15" min="1" max="100">
+            <div class="form-subtext">Number of apps above which 'auto' layout switches from cards to compact.</div>
+          </div>
+
+          <!-- Toggles -->
+          <div class="email-wiz-grid-2">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">SHA-256 Checksums</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Calculate & display APK checksums</div>
+              </div>
+              <label class="switch" style="margin-left: 12px;">
+                <input type="checkbox" id="email-wiz-checksum">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;">Attach result.json</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Attach JSON build manifest to email</div>
+              </div>
+              <label class="switch" style="margin-left: 12px;">
+                <input type="checkbox" id="email-wiz-attach-json">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5: Review & Live Test -->
+        <div id="email-wiz-step-5" class="wizard-content hidden">
+          <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">Review & Verify SMTP Delivery</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
+            Review your configuration and run a live test transmission before saving to <code>config.yaml</code>.
+          </p>
+
+          <!-- Summary Card -->
+          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 8px 0; color: var(--text-dim); width: 35%;">Status:</td>
+                <td id="email-rev-status" style="padding: 8px 0; font-weight: 600;">Enabled</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 8px 0; color: var(--text-dim);">SMTP Server:</td>
+                <td id="email-rev-server" style="padding: 8px 0; font-family: var(--font-mono); font-weight: 600;">smtp.gmail.com:587 (STARTTLS)</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 8px 0; color: var(--text-dim);">Sender:</td>
+                <td id="email-rev-sender" style="padding: 8px 0;">AutoMorph &lt;user@example.com&gt;</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 8px 0; color: var(--text-dim);">Recipients:</td>
+                <td id="email-rev-recipients" style="padding: 8px 0; color: var(--primary-cyan); font-weight: 600;">user@example.com</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: var(--text-dim);">Layout & Options:</td>
+                <td id="email-rev-layout" style="padding: 8px 0;">Auto Layout • Checksums Off • Attachments Off</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Live Test Banner / Trigger -->
+          <div style="background: rgba(32, 207, 206, 0.05); border: 1px solid rgba(32, 207, 206, 0.2); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <div style="font-weight: 600; font-size: 0.9375rem;">Live SMTP Connection Test</div>
+                <div style="font-size: 0.8125rem; color: var(--text-muted);">Transmit a test message using these configured server parameters</div>
+              </div>
+              <button id="btn-email-wiz-test" class="btn btn-secondary btn-sm" type="button">
+                <span class="material-symbols-rounded">send</span>
+                <span>Send Test Email Now</span>
+              </button>
+            </div>
+            <div id="email-wiz-test-feedback" class="hidden" style="padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.8125rem; line-height: 1.4;">
+              <!-- Filled on test result -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Modal Navigation Footer -->
+      <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <button id="btn-email-wiz-back" class="btn btn-secondary btn-sm" type="button" disabled>
+          <span class="material-symbols-rounded">arrow_back</span>
+          <span>Back</span>
+        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-email-wiz-cancel" class="btn btn-secondary btn-sm" type="button">Cancel</button>
+          <button id="btn-email-wiz-next" class="btn btn-primary btn-sm" type="button">
+            <span>Next</span>
+            <span class="material-symbols-rounded">arrow_forward</span>
+          </button>
+          <button id="btn-email-wiz-save" class="btn btn-primary btn-sm hidden" type="button">
+            <span class="material-symbols-rounded">save</span>
+            <span>Save & Apply Settings</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 6: View Result JSON / Patch Audit Modal
+       ======================================================================== -->
+  <div id="modal-result-viewer" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 840px; max-height: 90vh; display: flex; flex-direction: column;">
+      
+      <div class="modal-header">
+        <div class="modal-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="material-symbols-rounded" style="color: var(--primary-cyan);">analytics</span>
+          <span>Patch Result Audit</span>
+          <span id="res-modal-badge" class="badge">Result</span>
+        </div>
+        <button id="btn-res-modal-close-x" class="btn btn-secondary btn-icon-only btn-sm" aria-label="Close modal" type="button">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <!-- Result Modal Nav -->
+      <div class="modal-tab-nav" style="padding: 0 24px; margin-top: 12px; margin-bottom: 14px;">
+        <button class="modal-tab-item active" data-res-tab="summary" type="button">
+          <span class="material-symbols-rounded" style="font-size: 16px;">fact_check</span>
+          <span>Audit Summary</span>
+        </button>
+        <button class="modal-tab-item" data-res-tab="json" type="button">
+          <span class="material-symbols-rounded" style="font-size: 16px;">data_object</span>
+          <span>Formatted JSON</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-scroll-body" style="padding: 0 24px 16px 24px; overflow-y: auto; flex: 1;">
+        
+        <!-- Tab 1: Summary -->
+        <div id="res-tab-content-summary">
+          <!-- Summary Info Cards -->
+          <div class="res-meta-grid">
+            <div style="background: var(--bg-surface-elevated); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Package</div>
+              <div id="res-meta-pkg" style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); word-break: break-all; margin-top: 2px;">-</div>
+            </div>
+            <div style="background: var(--bg-surface-elevated); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Version</div>
+              <div id="res-meta-ver" style="font-size: 0.875rem; font-weight: 600; color: var(--primary-cyan); margin-top: 2px;">-</div>
+            </div>
+            <div style="background: var(--bg-surface-elevated); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Build Outcome</div>
+              <div id="res-meta-status" style="margin-top: 2px;">-</div>
+            </div>
+          </div>
+
+          <!-- Patching Steps Pipeline -->
+          <div style="margin-bottom: 18px;">
+            <div style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Pipeline Steps</div>
+            <div id="res-steps-container" style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Applied Patches -->
+          <div style="margin-bottom: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 0.8125rem; font-weight: 600; color: var(--color-success); text-transform: uppercase; letter-spacing: 0.05em;">
+                Applied Patches (<span id="res-applied-count">0</span>)
+              </div>
+            </div>
+            <div id="res-applied-list" class="drawer-patch-list" style="max-height: 240px; overflow-y: auto;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Failed Patches -->
+          <div id="res-failed-wrapper" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 0.8125rem; font-weight: 600; color: var(--color-danger); text-transform: uppercase; letter-spacing: 0.05em;">
+                Failed Patches (<span id="res-failed-count">0</span>)
+              </div>
+            </div>
+            <div id="res-failed-list" class="drawer-patch-list" style="max-height: 240px; overflow-y: auto;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Raw / Pretty JSON -->
+        <div id="res-tab-content-json" class="hidden">
+          <div style="position: relative;">
+            <pre id="res-json-pre" style="font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.5; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 16px; margin: 0; max-height: 520px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: var(--text-main);"></pre>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer" style="padding: 14px 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span id="res-modal-filepath" style="font-size: 0.75rem; color: var(--text-dim); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; max-width: 320px;">result.json</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btn-res-modal-copy" class="btn btn-secondary btn-sm" type="button">
+            <span class="material-symbols-rounded">content_copy</span>
+            <span>Copy JSON</span>
+          </button>
+          <a id="btn-res-modal-download" href="#" download="result.json" class="btn btn-primary btn-sm">
+            <span class="material-symbols-rounded">download</span>
+            <span>Download</span>
+          </a>
+          <button id="btn-res-modal-close" class="btn btn-secondary btn-sm" type="button">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" style="position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 200;"></div>
+
+  <!-- Script logic -->
+  <script src="js/app.js?v=3.5"></script>
+</body>
+</html>

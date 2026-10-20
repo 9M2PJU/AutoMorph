@@ -1,0 +1,60 @@
+# Infinity+
+ml.docilealligator.infinityforreddit.plus:
+  type: github
+  version: most_recent
+  repo: Docile-Alligator/Infinity-For-Reddit
+  # Regex to isolate the target asset from the release assets list
+  asset_pattern: '^Infinity\+-v.*\.apk$'  
+  # Fallback/matching arch: universal, arm64-v8a, etc.
+  arch: 
+
+# Infinity Patreon
+ml.docilealligator.infinityforreddit.patreon:
+  type: github
+  version: most_recent
+  repo: Docile-Alligator/Infinity-For-Reddit
+  # Regex to isolate the target asset from the release assets list
+  asset_pattern: '^Infinity-Patreon-v.*\.apk$'  
+  # Fallback/matching arch: universal, arm64-v8a, etc.
+  arch: 
+
+# AAEnabler
+com.aaenabler.app:
+  type: github
+  repo: malebuffy/AAEnabler
+  asset_pattern: 'AAEnabler-v.*\.apk$'
+  version: most_recent # v1.0.12 does not exist on github anymore
+
+# Anilili
+com.miruronative:
+  type: discord
+  url: https://discord.com/invite/m3HtAZeQH5 / https://github.com/kompoti121/anilili # download from discord
+
+# Monet-Launcher
+com.klevico.monet:
+  type: github
+  repo: Klevico/Monet-Launcher
+  asset_pattern: 'monet-.*\.apk'
+
+# Privacy Kit
+com.sal.privacykit:
+  type: github
+  repo: Xposed-Modules-Repo/com.sal.privacykit
+  asset_pattern: 'PrivacyKit-.*\.apk'
+  version: most_recent # cannot find v2.0.5
+
+# Vyxel Apps
+com.vythera.vyxelapps:
+  type: github
+  repo: NikhilKain/vyxel-apps
+  asset_pattern: 'Vyxel\.Apps\.v.*\.apk$'
+
+LocalDream_armv8a_3.0.0-alpha.3.apk:
+  type: github
+  repo: xororz/local-dream
+  asset_pattern: 'LocalDream_armv8a_.*\.apk$'
+
+  org.cygnusx1.continuum:
+    type: github
+    repo: cygnusx-1-org/continuum
+    asset_pattern: 'continuum-arm64-v8a-.*\.apk$'

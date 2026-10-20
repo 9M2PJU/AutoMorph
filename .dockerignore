@@ -1,0 +1,57 @@
+# Build speed: tools/ contains the 45MB jar which Dockerfile downloads separately
+tools/*
+morphe-data/
+
+# Application runtime data
+apps/
+tmp/
+
+# Security & Secrets
+.env
+*.keystore
+*.bak
+/config.yaml*
+/compose.yaml*
+
+# Allow defaults
+!defaults/
+!defaults/**
+
+# Git & Editor
+.git/
+.venv/
+.vscode/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Documentation & Scratch files
+scripts/test_dispatcher.py
+scripts/DISPATCHER_CONTRACT.md
+test_email.html
+RELOCATION_CHANGELOG.md
+scripts/testing
+README.md
+images
+oracle-cloud-init.yaml
+example.env
+setup.txt
+default_compose.yaml
+TODO.md
+
+# Whitelist
+!tools/automorph-data/
+
+# Whitelist Exceptions
+tools/automorph-data/options/
+tools/automorph-data/state/
+tools/automorph-data/config.yaml*
+
+# Node & Playwright Test Artifacts
+node_modules/
+test-results/
+playwright-report/
+.playwright/
+playwright.config.ts
+tests/

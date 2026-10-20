@@ -1,0 +1,11 @@
+requests
+PyYAML
+beautifulsoup4
+python-dotenv
+rich
+pyaxmlparser
+goopdl
+schedule
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+ruamel.yaml>=0.18.0

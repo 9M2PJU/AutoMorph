@@ -1,0 +1,44 @@
+tools/*
+!tools/automorph-data/
+tools/automorph-data/*
+!tools/automorph-data/app_sources.yaml
+tools/automorph-data/config.yaml*
+tools/automorph-data/options/
+tools/automorph-data/state/
+
+morphe-data/
+.venv/
+.env
+*.keystore
+*.bak
+tmp/
+.vscode/
+/config.yaml*
+/compose.yaml*
+!defaults/
+!defaults/**
+useful_commands.txt
+
+# Python caches
+**/__pycache__/
+*.py[cod]
+
+# App folders
+apps/original
+apps/patched
+
+# Testing & Scratch
+apkeep.ini
+scripts/test_dispatcher.py
+scripts/DISPATCHER_CONTRACT.md
+scripts/testing
+setup.txt
+
+# Whitelist
+!tools/automorph-data/app_sources.yaml
+
+# Node & Playwright
+node_modules/
+test-results/
+playwright-report/
+.playwright/
