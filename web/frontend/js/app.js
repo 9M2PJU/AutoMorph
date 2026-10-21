@@ -2777,7 +2777,29 @@ function openAddPackageWizard() {
   searchCatalog(''); // Initial empty search
 }
 
+function openWizardLoadingModal(title, subtitle) {
+  const modal = document.getElementById('modal-wizard-loading');
+  if (!modal) return;
+  const titleEl = document.getElementById('wiz-loading-title');
+  const subEl = document.getElementById('wiz-loading-subtitle');
+  if (titleEl && title) titleEl.textContent = title;
+  if (subEl && subtitle) subEl.textContent = subtitle;
+  modal.classList.add('open');
+}
+
+function updateWizardLoadingModal(title, subtitle) {
+  const titleEl = document.getElementById('wiz-loading-title');
+  const subEl = document.getElementById('wiz-loading-subtitle');
+  if (titleEl && title) titleEl.textContent = title;
+  if (subEl && subtitle) subEl.textContent = subtitle;
+}
+
+function closeWizardLoadingModal() {
+  document.getElementById('modal-wizard-loading')?.classList.remove('open');
+}
+
 function closeWizardModal() {
+  closeWizardLoadingModal();
   document.getElementById('modal-wizard')?.classList.remove('open');
 }
 
@@ -2852,9 +2874,33 @@ async function wizardNextStep() {
     }
     state.wizard.repos = new Set(checkedUrls);
 
-    // Load patch definitions for selected repos
-    await loadWizardPatches();
-    updateWizardStepView(3);
+    const btnNext = document.getElementById('btn-wiz-next');
+    const originalNextHtml = btnNext ? btnNext.innerHTML : '';
+    if (btnNext) {
+      btnNext.disabled = true;
+      btnNext.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s infinite linear;">sync</span> <span>Preparing...</span>`;
+    }
+
+    const repoNames = checkedUrls.map(cleanRepoSlug).join(', ');
+    openWizardLoadingModal(
+      'Preparing Patch Options...',
+      `Checking repository cache & loading patches for ${repoNames}...`
+    );
+
+    try {
+      // Load patch definitions for selected repos
+      await loadWizardPatches();
+      updateWizardStepView(3);
+    } catch (err) {
+      console.error('Failed to load wizard patches:', err);
+      showToast(`Error preparing patches: ${err.message || err}`, 'error');
+    } finally {
+      closeWizardLoadingModal();
+      if (btnNext) {
+        btnNext.disabled = false;
+        btnNext.innerHTML = originalNextHtml;
+      }
+    }
 
   } else if (step === 3) {
     // Step 3 -> Step 4: Populate/refresh patch aliases
@@ -4450,6 +4496,11 @@ async function loadWizardPatches() {
   });
 
   if (missingRepos.length > 0) {
+    const missingNames = missingRepos.map(cleanRepoSlug).join(', ');
+    updateWizardLoadingModal(
+      'Downloading & Populating Patches...',
+      `Downloading release bundle & populating patches for ${missingNames} via Morphe CLI...`
+    );
     try {
       const fetchRes = await fetch(`/api/options-fetch/${encodeURIComponent(pkg)}`, {
         method: 'POST',
