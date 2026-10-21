@@ -29,11 +29,48 @@ if (PROJECT_ROOT / ".env").is_file():
 CONFIG_PATH = PROJECT_ROOT / "tools" / "automorph-data" / "config.yaml"
 BACKUP_PATH = CONFIG_PATH.parent / "config.yaml.bak"
 PATCHED_DIR = PROJECT_ROOT / "apps" / "patched"
+STATE_DIR = PROJECT_ROOT / "tools" / "automorph-data" / "state"
+PATCHED_JSON_PATH = STATE_DIR / "patched.json"
 
 DEFAULTS_DIR = PROJECT_ROOT / "defaults"
 DEFAULT_CONFIG_PATH = DEFAULTS_DIR / "config.yaml"
 DEFAULT_SOURCES_PATH = DEFAULTS_DIR / "app_sources.yaml"
 SOURCES_PATH = CONFIG_PATH.parent / "app_sources.yaml"
+
+
+def _extract_repo_owner(repo_url: str) -> str:
+    """Extracts a clean repository owner / vendor identifier from a repo URL."""
+    if not repo_url or not isinstance(repo_url, str):
+        return ""
+    repo_url = repo_url.strip()
+    match = re.search(r"https?://[^/]+/([^/]+)/", repo_url)
+    if match:
+        return match.group(1)
+    parts = repo_url.strip("/").split("/")
+    if len(parts) >= 2:
+        return parts[-2]
+    return repo_url
+
+
+def load_patched_registry() -> dict[str, Any]:
+    """
+    Loads tools/automorph-data/state/patched.json containing the registry
+    of successfully patched packages, versions, and applied patches.
+    """
+    target = PATCHED_JSON_PATH
+    if not target.is_file():
+        alt = PROJECT_ROOT / "tools" / "state" / "patched.json"
+        if alt.is_file():
+            target = alt
+        else:
+            return {}
+    try:
+        with target.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception as e:
+        logger.debug(f"Error loading patched.json: {e}")
+        return {}
 
 
 def ensure_config_exists() -> Path:
@@ -197,32 +234,15 @@ def _extract_patch_details(item: Any) -> tuple[str, str]:
     return name_str, reason_str
 
 
-def get_last_patch_result(package: str) -> dict[str, Any] | None:
+def get_last_patch_result(package: str, patched_registry: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """
-    Reads all result.json files across version attempts and state/logs/last_run_report.json.
-    Returns multi-attempt patch audit details including per-attempt breakdown,
-    patch-to-repo-owner mapping, applied/failed patches with clean names, and pipeline diagnostics.
+    Retrieves latest patch status for a package.
+    Primary Fast Path: Uses tools/automorph-data/state/patched.json for successfully built apps,
+    eliminating redundant options parsing, result.json inspection, and disk crawls.
+    Fallback Path: Reads package_runs/<package>.json, last_run_report.json, and result.json on disk
+    for failure diagnostics or unindexed legacy builds.
     """
-    # 1. Build patch -> repo owner map from options/<package>/*.json
-    patch_owners: dict[str, str] = {}
-    options_app_dir = PROJECT_ROOT / "tools" / "automorph-data" / "options" / package
-    if options_app_dir.is_dir():
-        for opt_file in options_app_dir.glob("*_options.json"):
-            owner = opt_file.name.replace("_options.json", "")
-            try:
-                with opt_file.open("r", encoding="utf-8") as f:
-                    opt_data = json.load(f)
-                patches_dict = {}
-                if isinstance(opt_data, list) and opt_data and isinstance(opt_data[-1], dict):
-                    patches_dict = opt_data[-1].get("patches", {})
-                elif isinstance(opt_data, dict):
-                    patches_dict = opt_data.get("patches", {})
-                for p_name in patches_dict.keys():
-                    patch_owners[p_name] = owner
-            except Exception:
-                pass
-
-    # 2. Check for run report: package-specific report first, then last_run_report.json
+    # 1. Check for run report: package-specific report first, then last_run_report.json
     pkg_run_file = PROJECT_ROOT / "tools" / "automorph-data" / "state" / "package_runs" / f"{package}.json"
     last_report_file = PROJECT_ROOT / "tools" / "automorph-data" / "state" / "logs" / "last_run_report.json"
 
@@ -274,6 +294,144 @@ def get_last_patch_result(package: str) -> dict[str, Any] | None:
                     winning_attempt_idx = report_succ_info.get("attempt")
         except Exception as e:
             logger.debug(f"Error reading {last_report_file}: {e}")
+
+    # 2. Fast Path: Check tools/automorph-data/state/patched.json
+    if patched_registry is None:
+        patched_registry = load_patched_registry()
+
+    pkg_entry = patched_registry.get(package)
+    valid_versions: list[tuple[float, str, dict[str, Any], Path]] = []
+    if isinstance(pkg_entry, dict):
+        for ver_name, ver_info in pkg_entry.items():
+            if not isinstance(ver_info, dict):
+                continue
+            loc_str = str(ver_info.get("location") or "")
+            loc = Path(loc_str) if loc_str else None
+            if not loc or not loc.is_file():
+                # Fallback to standard app location if path moved
+                candidate = PATCHED_DIR / package / ver_name / f"{package}_{ver_name}_patched.apk"
+                if candidate.is_file():
+                    loc = candidate
+            if loc and loc.is_file():
+                t_str = ver_info.get("time", "")
+                t_val = 0.0
+                if t_str:
+                    try:
+                        t_val = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S").timestamp()
+                    except Exception:
+                        t_val = loc.stat().st_mtime
+                else:
+                    t_val = loc.stat().st_mtime
+                valid_versions.append((t_val, ver_name, ver_info, loc))
+
+    if valid_versions:
+        valid_versions.sort(key=lambda x: x[0], reverse=True)
+        best_time, best_ver, best_info, best_loc = valid_versions[0]
+        has_newer_failure = (report_fail_info is not None and report_timestamp > best_time)
+
+        # If there is no more recent failure, return the fast-path result directly!
+        if not has_newer_failure:
+            applied_dict = best_info.get("applied_patches") or {}
+            patch_owners = {}
+            norm_applied = []
+            for p_name, r_url in applied_dict.items():
+                owner = _extract_repo_owner(r_url)
+                patch_owners[p_name] = owner
+                norm_applied.append({
+                    "name": str(p_name).strip(),
+                    "owner": owner,
+                    "options": None,
+                })
+
+            strat = best_info.get("strat", 1)
+            strat_num = int(strat) if str(strat).isdigit() else 1
+            strat_name = "Strategy 1 (All Repos)" if strat_num == 1 else "Strategy 2 (Version-Compatible)"
+            attempt_num = best_info.get("attempt", 1)
+            attempt_val = int(attempt_num) if str(attempt_num).isdigit() else 1
+            repos = [str(r).strip() for r in (best_info.get("repos") or []) if str(r).strip()]
+
+            detailed_attempts = []
+            if report_attempts:
+                for idx, att in enumerate(report_attempts):
+                    att_ver = str(att.get("version") or att.get("target_version") or best_ver)
+                    att_strat = att.get("strategy") or att.get("run") or 1
+                    att_strat_name = att.get("strategy_name") or ("Strategy 1 (All Repos)" if att_strat == 1 else "Strategy 2 (Version-Compatible)")
+                    att_status = att.get("status") or ("success" if idx == len(report_attempts) - 1 else "failed")
+                    detailed_attempts.append({
+                        "attempt_number": idx + 1,
+                        "version": att_ver,
+                        "strategy": att_strat,
+                        "strategy_name": att_strat_name,
+                        "stage": att.get("stage") or "Morphe Patching",
+                        "reason": att.get("reason") or "",
+                        "status": att_status,
+                        "repos": [str(r).strip() for r in (att.get("repos") or repos) if str(r).strip()],
+                        "applied_patches": norm_applied if att_status == "success" else [],
+                        "failed_patches": [],
+                        "applied_count": len(norm_applied) if att_status == "success" else 0,
+                        "failed_count": 0,
+                    })
+            else:
+                detailed_attempts.append({
+                    "attempt_number": attempt_val,
+                    "version": best_ver,
+                    "strategy": strat_num,
+                    "strategy_name": strat_name,
+                    "stage": "Morphe Patching",
+                    "reason": "",
+                    "status": "success",
+                    "repos": repos,
+                    "applied_patches": norm_applied,
+                    "failed_patches": [],
+                    "applied_count": len(norm_applied),
+                    "failed_count": 0,
+                })
+
+            effective_time = max(best_time, report_timestamp)
+            tz = get_current_timezone()
+            dt = datetime.fromtimestamp(effective_time, tz=tz) if effective_time else datetime.now(tz=tz)
+
+            return {
+                "version": best_ver,
+                "status": "success",
+                "is_pipeline_failure": False,
+                "failure_stage": "Pipeline",
+                "failure_reason": "",
+                "total_attempts": len(detailed_attempts),
+                "winning_strategy": strat_num,
+                "winning_strategy_name": strat_name,
+                "winning_attempt_number": attempt_val,
+                "download_url": f"/files/{package}/{best_ver}/{best_loc.name}",
+                "apk_name": best_loc.name,
+                "attempts": detailed_attempts,
+                "patch_owners": patch_owners,
+                "applied_patches": norm_applied,
+                "failed_patches": [],
+                "applied_count": len(norm_applied),
+                "failed_count": 0,
+                "sha256": best_info.get("sha256"),
+                "timestamp": int(effective_time),
+                "timestamp_formatted": dt.strftime("%b %d, %H:%M"),
+            }
+
+    # 3. Fallback Path: Build patch -> repo owner map from options/<package>/*.json
+    patch_owners: dict[str, str] = {}
+    options_app_dir = PROJECT_ROOT / "tools" / "automorph-data" / "options" / package
+    if options_app_dir.is_dir():
+        for opt_file in options_app_dir.glob("*_options.json"):
+            owner = opt_file.name.replace("_options.json", "")
+            try:
+                with opt_file.open("r", encoding="utf-8") as f:
+                    opt_data = json.load(f)
+                patches_dict = {}
+                if isinstance(opt_data, list) and opt_data and isinstance(opt_data[-1], dict):
+                    patches_dict = opt_data[-1].get("patches", {})
+                elif isinstance(opt_data, dict):
+                    patches_dict = opt_data.get("patches", {})
+                for p_name in patches_dict.keys():
+                    patch_owners[p_name] = owner
+            except Exception:
+                pass
 
     # 3. Read all version result.json files on disk
     pkg_dir = PATCHED_DIR / package
@@ -623,6 +781,7 @@ def get_apps_list() -> list[dict[str, Any]]:
 
     results: list[dict[str, Any]] = []
     seen_packages: set[str] = set()
+    patched_registry = load_patched_registry()
 
     with CONFIG_PATH.open("r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -631,7 +790,7 @@ def get_apps_list() -> list[dict[str, Any]]:
     if apps_start_idx == -1:
         # Fallback to just active apps if no packages/apps section recognized
         for pkg, item in active_apps_map.items():
-            results.append(_format_app_entry(pkg, item, is_enabled=True))
+            results.append(_format_app_entry(pkg, item, is_enabled=True, patched_registry=patched_registry))
         return results
 
     for block in blocks:
@@ -643,7 +802,7 @@ def get_apps_list() -> list[dict[str, Any]]:
         is_enabled = not block["is_commented"]
         if is_enabled and pkg in active_apps_map:
             item = active_apps_map[pkg]
-            results.append(_format_app_entry(pkg, item, is_enabled=True))
+            results.append(_format_app_entry(pkg, item, is_enabled=True, patched_registry=patched_registry))
         else:
             # Parse block lines by stripping comment markers
             block_lines = lines[block["start"]:block["end"]]
@@ -661,12 +820,17 @@ def get_apps_list() -> list[dict[str, Any]]:
             except Exception:
                 item = {"package_name": pkg}
 
-            results.append(_format_app_entry(pkg, item, is_enabled=is_enabled))
+            results.append(_format_app_entry(pkg, item, is_enabled=is_enabled, patched_registry=patched_registry))
 
     return results
 
 
-def _format_app_entry(pkg: str, item: dict[str, Any], is_enabled: bool) -> dict[str, Any]:
+def _format_app_entry(
+    pkg: str,
+    item: dict[str, Any],
+    is_enabled: bool,
+    patched_registry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     repos = item.get("repos") or []
     if isinstance(repos, str):
         repos = [repos]
@@ -680,7 +844,7 @@ def _format_app_entry(pkg: str, item: dict[str, Any], is_enabled: bool) -> dict[
         "repos": list(repos),
         "patch_aliases": list(aliases) if isinstance(aliases, list) else [],
         "enabled": is_enabled,
-        "last_result": get_last_patch_result(pkg),
+        "last_result": get_last_patch_result(pkg, patched_registry=patched_registry),
     }
 
 

@@ -200,29 +200,71 @@ def get_next_run_info() -> dict[str, Any]:
     }
 
 
+_last_storage_stats: dict[str, Any] = {}
+_last_storage_stats_time: float = 0.0
+
+
 def get_storage_stats() -> dict[str, Any]:
+    global _last_storage_stats, _last_storage_stats_time
+    now = time.time()
+    if _last_storage_stats and (now - _last_storage_stats_time < 15.0):
+        return _last_storage_stats
+
     patched_dir = PROJECT_ROOT / "apps" / "patched"
     if not patched_dir.is_dir():
         return {"apk_count": 0, "total_bytes": 0, "formatted_size": "0 B"}
 
     total_bytes = 0
     apk_count = 0
-    for root, _, files in os.walk(patched_dir):
-        for f in files:
-            try:
-                fp = Path(root) / f
-                sz = fp.stat().st_size
-                total_bytes += sz
-                if f.endswith(".apk"):
-                    apk_count += 1
-            except Exception:
-                pass
+    seen_apks: set[Path] = set()
 
-    return {
+    # 1. Fast lookup from patched.json registry
+    try:
+        registry = config_manager.load_patched_registry()
+        for pkg, versions in registry.items():
+            if isinstance(versions, dict):
+                for ver, info in versions.items():
+                    if isinstance(info, dict):
+                        loc_str = str(info.get("location") or "")
+                        loc = Path(loc_str) if loc_str else None
+                        if not loc or not loc.is_file():
+                            candidate = patched_dir / pkg / ver / f"{pkg}_{ver}_patched.apk"
+                            if candidate.is_file():
+                                loc = candidate
+                        if loc and loc.is_file():
+                            sz = loc.stat().st_size
+                            total_bytes += sz
+                            apk_count += 1
+                            seen_apks.add(loc.resolve())
+    except Exception:
+        pass
+
+    # 2. Check for any legacy or unindexed APKs on disk (shallow 2-level scan)
+    try:
+        for pkg_entry in patched_dir.iterdir():
+            if pkg_entry.is_dir():
+                for ver_entry in pkg_entry.iterdir():
+                    if ver_entry.is_dir():
+                        for apk_file in ver_entry.glob("*.apk"):
+                            r_apk = apk_file.resolve()
+                            if r_apk not in seen_apks:
+                                try:
+                                    total_bytes += r_apk.stat().st_size
+                                    apk_count += 1
+                                    seen_apks.add(r_apk)
+                                except Exception:
+                                    pass
+    except Exception:
+        pass
+
+    result = {
         "apk_count": apk_count,
         "total_bytes": total_bytes,
         "formatted_size": format_bytes(total_bytes),
     }
+    _last_storage_stats = result
+    _last_storage_stats_time = now
+    return result
 
 
 # ---------------------------------------------------------------------------
