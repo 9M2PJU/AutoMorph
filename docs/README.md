@@ -1,6 +1,6 @@
 # AutoMorph Documentation Hub
 
-Welcome to the **AutoMorph** documentation! Here you will find step-by-step guides for hosting, configuring, exposing, and using AutoMorph.
+Welcome to the **AutoMorph** documentation! AutoMorph is completely self-hosted and runs anywhere Docker is supported — whether on your own home server, homelab (Unraid, Proxmox, TrueNAS), Raspberry Pi, or a cloud VPS.
 
 ---
 
@@ -8,17 +8,18 @@ Welcome to the **AutoMorph** documentation! Here you will find step-by-step guid
 
 Choose a guide below to get started:
 
-### ☁️ [1. Oracle Cloud Free Tier Setup](oracle-setup.md)
-* Learn how to set up an **Always Free** VPS on Oracle Cloud Infrastructure (OCI).
-* Step-by-step guide through instance creation, shape selection (`VM.Standard.E2.1.Micro`), and automated setup via cloud-init.
+### ☁️ [1. Oracle Cloud Free Tier Setup (Optional)](oracle-setup.md)
+* *Optional guide for users without a server*: Learn how to launch an **Always Free** VPS on Oracle Cloud Infrastructure (OCI).
+* Step-by-step walkthrough covering instance creation, shape selection (`VM.Standard.E2.1.Micro`), and automated setup via cloud-init.
 * Connecting via Windows PowerShell (with SSH key permission fixes) and starting Docker.
+* *(If you already have your own server or VPS, you can skip this guide!).*
 
 ### 🚇 [2. Remote Access & Tunnels Guide](tunnels.md)
-* Expose your AutoMorph web portal securely over HTTPS with zero port-forwarding:
+* Set up a tunnel **before** configuring AutoMorph so you have your access URL and tokens ready:
   * **🔴 Pangolin**: Quickest setup, free public URL, zero custom domain required.
-  * **🔵 Tailscale Funnel**: Secure mesh network access or public HTTPS endpoint.
+  * **🔵 Tailscale Funnel**: Zero-cost public HTTPS endpoint or private mesh access.
   * **🟠 Cloudflare Tunnels**: Best choice if you own a custom domain.
-* Instructions on setting compose profiles and viewing tunnel logs.
+* Clear explanation of tunnel tokens, compose profiles, and how links are generated in email reports.
 
 ### 📖 [3. User Guide & Web Interface](user-guide.md)
 * Comprehensive tour of the web portal:
@@ -34,9 +35,9 @@ Choose a guide below to get started:
 
 ```mermaid
 graph TD
-    A[1. Launch Server<br/>Oracle Free Tier VPS] -->|oracle-cloud-init.yaml| B[2. Configure .env<br/>Email & Credentials]
-    B --> C[3. Choose a Tunnel<br/>Pangolin, Tailscale, or Cloudflare]
-    C --> D[4. docker compose up -d<br/>Service Running]
+    A[1. Choose Server<br/>Your Own Server OR Optional Oracle VPS] --> B[2. Choose & Setup Tunnel<br/>Pangolin, Tailscale Funnel, or Cloudflare]
+    B -->|Obtain URLs & Tokens| C[3. Configure .env<br/>Fill in Email Settings & Tunnel Details]
+    C --> D[4. Launch AutoMorph<br/>docker compose up -d]
     D --> E[5. Open Web Portal<br/>Add Packages & Customise Patches]
     E --> F[6. Enjoy Automated Daily Builds<br/>& Email Download Links]
 ```

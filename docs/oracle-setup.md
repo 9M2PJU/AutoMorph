@@ -2,12 +2,15 @@
 
 ---
 
-# Setting Up Oracle Free Tier VPS & Launching AutoMorph
+# Setting Up Oracle Free Tier VPS & Launching AutoMorph (Optional)
+
+> [!TIP]
+> **Have your own server already?** AutoMorph runs anywhere Docker is supported (home server, homelab, Unraid, TrueNAS, Raspberry Pi, or another VPS). If you already have hardware to run it on, you can skip this guide entirely and head straight to the [Remote Access & Tunnels Guide](tunnels.md).
 
 This guide walks you through creating and launching your own free Virtual Private Server (VPS) on Oracle Cloud Infrastructure (OCI) under their **Always Free** tier, configuring SSH access, and starting AutoMorph.
 
 > [!NOTE]
-> Oracle occasionally updates their terms and tier policies. As long as you stay on the pure Always Free tier and do not convert to Pay-As-You-Go, you will not be charged. You will need a credit or debit card to register; Oracle charges a temporary verification hold (~$1.00 USD) that is promptly returned to verify account legitimacy.
+> Oracle can and does change their policies from time to time, so keep an eye out to make sure your service does not creep into a paid tier. As long as you stay on the pure Always Free tier and do not convert to Pay-As-You-Go (which can also be free), you should not accidentally incur a charge. You will need a card to register; Oracle charges a temporary verification hold (~$1.00 USD) that is returned to confirm your account is genuine and that you are of age. Note that the location of your server cannot be changed once set on the free tier.
 
 ---
 
@@ -93,10 +96,11 @@ Under the **Networking** section:
 
 ### 1.4 Storage & Boot Volume
 
-Oracle Free Tier accounts allow up to **200 GB** of total boot/block storage across all instances.
+An Oracle Free Tier account currently is permitted a maximum of **200 GB** in storage across all their instances.
 
-* By default, the boot volume is 50 GB, which is plenty for AutoMorph.
-* If you want to allocate more space now, check **Specify a custom boot volume size and performance** and enter your desired size (e.g. 100 GB to 200 GB).
+If desired, you may edit the boot volume size (default is 50 GB) or create and mount an attached volume that can be shared between other instances. An attached volume can be created and mounted at a later date.
+
+For this guide, we will assume that you just use the boot volume. If you wish to increase its size now, tick the **Specify a custom boot volume size and performance** setting and specify your desired boot volume size (up to 200 GB).
 
 <!-- Screenshot placeholder: Custom boot volume size setting -->
 
@@ -188,6 +192,9 @@ tail -f /var/log/cloud-init-output.log
 
 ### 3.2 Configure `.env`
 
+> [!IMPORTANT]
+> **Set up your tunnel first!** Before editing `.env`, choose and configure your preferred remote access tunnel (see the [Remote Access & Tunnels Guide](tunnels.md)). You will need the public tunnel URL or tokens generated from that step to paste into your `.env`.
+
 Edit the `.env` file to set up email reporting, downloads, and remote access tunnels:
 ```bash
 nano .env
@@ -195,15 +202,16 @@ nano .env
 
 Key configuration areas:
 1. **Email Reports**: Enter your `SMTP_USERNAME` and `SMTP_PASSWORD` (for Gmail, generate a 16-character [Google App Password](https://myaccount.google.com/apppasswords)).
-2. **Tunnel & Remote Access**: Set your preferred tunnel provider (see the [Remote Access & Tunnels Guide](tunnels.md) for details):
-   * **Pangolin**: Free public URL with no custom domain required.
-   * **Tailscale Funnel**: Secure mesh network or public Funnel link.
-   * **Cloudflare Tunnel**: Best if you already have your own domain name.
+2. **Tunnel & Remote Access**: Paste the credentials from your chosen tunnel provider ([Pangolin, Tailscale, or Cloudflare](tunnels.md)):
+   * **Pangolin**: Fill in `PANGOLIN_ENDPOINT`, `PANGOLIN_ID`, `PANGOLIN_SECRET`, and `PANGOLIN_URL`.
+   * **Tailscale Funnel**: Fill in `TAILSCALE_FUNNEL_URL`.
+   * **Cloudflare Tunnel**: Fill in `CLOUDFLARE_TUNNEL_TOKEN` and `CLOUDFLARE_TUNNEL_URL`.
 3. **Set Compose Profile**: If using Pangolin or Cloudflare, ensure you set:
    ```bash
    COMPOSE_PROFILES=pangolin
    # or COMPOSE_PROFILES=cloudflare
    ```
+   *(Tailscale runs directly on the host, so it does not need a compose profile).*
 
 To save and exit in `nano`:
 * Press `Ctrl + O`, then `Enter` to save.
@@ -272,7 +280,7 @@ docker compose logs -f cloudflared
 <details>
 <summary><b>Will my Oracle instance stay free forever?</b></summary>
 
-Yes, as long as your shape is `VM.Standard.E2.1.Micro` (or Ampere A1 within limits) and total boot volume across all your instances remains ≤ 200 GB, it remains within Oracle's Always Free tier.
+Under Oracle's current Always Free policies, standard shapes like `VM.Standard.E2.1.Micro` and up to 200 GB total storage incur no charges. However, **Oracle can and does change their policies and terms of service from time to time**. You should keep an eye on your account and Oracle email announcements to make sure your service stays within the free tier. As long as you stay on the pure free tier and not pay-as-you-go, you should not accidentally incur a charge.
 </details>
 
 ---

@@ -29,7 +29,7 @@
 
 For full step-by-step guides, visit our **[Documentation Hub](docs/README.md)**:
 
-* ☁️ **[Oracle Free Tier Setup Guide](docs/oracle-setup.md)**: Launch a 100% free VPS on Oracle Cloud with our automated cloud-init script.
+* ☁️ **[Oracle Free Tier Setup Guide (Optional)](docs/oracle-setup.md)**: Optional guide to launch a free VPS on Oracle Cloud (skip if you already have your own server!).
 * 🚇 **[Remote Access & Tunnels Guide](docs/tunnels.md)**: Expose your portal securely with free HTTPS via Pangolin, Tailscale Funnel, or Cloudflare Tunnels.
 * 📖 **[User Guide & Web Interface](docs/user-guide.md)**: Managing packages, customizing patch options, daily schedules, and email notifications.
 
@@ -39,9 +39,10 @@ For full step-by-step guides, visit our **[Documentation Hub](docs/README.md)**:
 
 ## Quick Start
 
-1. Download `compose.yaml` (from [`default_compose.yaml`](default_compose.yaml)) and [`example.env`](example.env).
-2. Fill in your details in `example.env`, then rename it to `.env` (see the [Tunnels Guide](docs/tunnels.md) for remote access settings).
-3. Run:
+1. Set up your preferred [remote tunnel](docs/tunnels.md) (Pangolin, Tailscale Funnel, or Cloudflare) to obtain your URL and tokens.
+2. Download `compose.yaml` (from [`default_compose.yaml`](default_compose.yaml)) and [`example.env`](example.env).
+3. Fill in your details and tunnel credentials in `example.env`, then rename it to `.env`.
+4. Run:
 
    ```bash
    docker compose pull

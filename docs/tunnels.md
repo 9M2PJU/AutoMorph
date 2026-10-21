@@ -10,11 +10,12 @@ AutoMorph comes with built-in, first-class support for three tunnel providers. Y
 
 | Feature | 🔴 Pangolin | 🔵 Tailscale Funnel | 🟠 Cloudflare Tunnel |
 | :--- | :--- | :--- | :--- |
+| **Cost** | 100% Free | 100% Free (Tailscale Free tier + zero-cost Funnel) | 100% Free (requires your own domain) |
 | **Custom Domain Required?** | ❌ No | ❌ No (`*.ts.net` provided) | ✅ Yes |
 | **Access Type** | Public URL | Public (Funnel) or Private Mesh | Public URL |
 | **SSL / HTTPS** | Automatic | Automatic | Automatic |
 | **Requires Host Agent?** | ❌ In Docker Compose | ✅ Host CLI / Tailscale daemon | ❌ In Docker Compose |
-| **Best For** | Quickest setup, zero domain cost | Tailscale network users | Users with their own domain |
+| **Best For** | Quickest setup, zero domain cost | Tailscale network users, zero cost | Users with their own domain |
 
 ---
 
@@ -98,7 +99,13 @@ Open your `.env` file:
 ```dotenv
 TAILSCALE_FUNNEL_URL=https://your-node.tailnet-xyz.ts.net
 ```
-*(No `COMPOSE_PROFILES` change is needed for Tailscale since Tailscale runs on the host machine).*
+
+> [!IMPORTANT]
+> **Does Tailscale need `COMPOSE_PROFILES`?**
+> **No.** Unlike Pangolin or Cloudflare (which run as separate sidecar containers in `compose.yaml`), Tailscale runs directly on your host operating system. You do **not** add `tailscale` to `COMPOSE_PROFILES`.
+>
+> **How does the email builder and web portal use Tailscale?**
+> AutoMorph's dispatcher inspects your `.env` for `TAILSCALE_FUNNEL_URL`. As long as this URL is populated, AutoMorph automatically creates a branded **Tailscale Funnel** download button and badge in your email build notifications, and displays the direct download link on the web portal.
 
 ---
 
