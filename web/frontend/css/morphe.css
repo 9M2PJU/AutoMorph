@@ -1495,6 +1495,28 @@ a.drawer-patch-owner-chip:hover,
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 4px;
+  line-height: 1.45;
+}
+
+.form-subtext a {
+  color: var(--primary-cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: var(--transition);
+}
+
+.form-subtext a:hover {
+  color: var(--primary-accent-hover);
+}
+
+.form-subtext code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 1px 4px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-main);
 }
 
 .form-control {
