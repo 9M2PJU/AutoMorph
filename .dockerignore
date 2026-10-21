@@ -27,9 +27,11 @@ __pycache__/
 *.py[cod]
 
 # Documentation & Scratch files
+docs/
 scripts/test_dispatcher.py
 scripts/DISPATCHER_CONTRACT.md
 test_email.html
+*test_email*
 RELOCATION_CHANGELOG.md
 scripts/testing
 README.md
