@@ -1,0 +1,187 @@
+[🏠 Documentation Hub](README.md) › **Remote Access & Tunnels Guide**
+
+---
+
+# Remote Access & Tunnels Guide
+
+AutoMorph runs on port `8080` inside Docker. When hosting on a cloud VPS (such as [Oracle Free Tier](oracle-setup.md)) or on a home server behind NAT/CGNAT, exposing your instance securely without opening firewall ports or managing SSL certificates is best accomplished using a **Tunnel**.
+
+AutoMorph comes with built-in, first-class support for three tunnel providers. You can choose any one (or even combine multiple):
+
+| Feature | 🔴 Pangolin | 🔵 Tailscale Funnel | 🟠 Cloudflare Tunnel |
+| :--- | :--- | :--- | :--- |
+| **Custom Domain Required?** | ❌ No | ❌ No (`*.ts.net` provided) | ✅ Yes |
+| **Access Type** | Public URL | Public (Funnel) or Private Mesh | Public URL |
+| **SSL / HTTPS** | Automatic | Automatic | Automatic |
+| **Requires Host Agent?** | ❌ In Docker Compose | ✅ Host CLI / Tailscale daemon | ❌ In Docker Compose |
+| **Best For** | Quickest setup, zero domain cost | Tailscale network users | Users with their own domain |
+
+---
+
+## Table of Contents
+
+- [Option 1: Pangolin Setup (Easiest / Free URL)](#option-1-pangolin-setup-easiest--free-url)
+  - [1.1 Create Account & Target](#11-create-account--target)
+  - [1.2 Configure `.env`](#12-configure-env)
+- [Option 2: Tailscale Funnel Setup](#option-2-tailscale-funnel-setup)
+  - [2.1 Install Tailscale on the Host](#21-install-tailscale-on-the-host)
+  - [2.2 Enable Tailscale Funnel](#22-enable-tailscale-funnel)
+  - [2.3 Configure `.env`](#23-configure-env-1)
+- [Option 3: Cloudflare Tunnel Setup](#option-3-cloudflare-tunnel-setup)
+  - [3.1 Create a Cloudflare Tunnel](#31-create-a-cloudflare-tunnel)
+  - [3.2 Route Traffic to AutoMorph](#32-route-traffic-to-automorph)
+  - [3.3 Configure `.env`](#33-configure-env-2)
+- [Starting Services & Viewing Logs](#starting-services--viewing-logs)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Option 1: Pangolin Setup (Easiest / Free URL)
+
+Pangolin provides quick reverse-proxy tunnels using Newt clients. You don't need a domain or open ports.
+
+### 1.1 Create Account & Target
+1. Register for an account at [Pangolin](https://pangolin.net/) (or your self-hosted Pangolin instance).
+2. Create a new Site/Target in your Pangolin dashboard:
+   * **Target Host**: `automorph`
+   * **Target Port**: `8080`
+   * **Protocol**: `HTTP`
+3. Generate or view your **Newt Client credentials**:
+   * Note your **Endpoint**, **Newt ID**, and **Newt Secret**.
+   * Note the allocated public domain/URL (e.g. `https://my-patcher.example-pangolin.com`).
+
+### 1.2 Configure `.env`
+In your `automorph` folder, open `.env`:
+```bash
+nano .env
+```
+Fill in the Pangolin variables:
+```dotenv
+# Enable the Pangolin compose profile
+COMPOSE_PROFILES=pangolin
+
+# Pangolin Credentials
+PANGOLIN_ENDPOINT=app.pangolin.net:443
+PANGOLIN_ID=your_newt_id_here
+PANGOLIN_SECRET=your_newt_secret_here
+PANGOLIN_URL=https://my-patcher.example-pangolin.com
+```
+
+Save with `Ctrl + O`, `Enter`, and exit with `Ctrl + X`.
+
+---
+
+## Option 2: Tailscale Funnel Setup
+
+Tailscale allows you to access AutoMorph over your private tailnet or expose it publicly using [Tailscale Funnel](https://tailscale.com/kb/1223/funnel).
+
+### 2.1 Install Tailscale on the Host
+If you are on an Ubuntu VPS (such as Oracle):
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+Follow the authentication link printed in the terminal to sign into your Tailscale account.
+
+### 2.2 Enable Tailscale Funnel
+To expose port 8080 as a public HTTPS URL:
+```bash
+sudo tailscale funnel 8080
+```
+Tailscale will output your public address (e.g., `https://your-node.tailnet-xyz.ts.net`).
+
+> [!NOTE]
+> If you only want to access AutoMorph securely within your private Tailscale network (not publicly over the open internet), run `sudo tailscale serve 8080` instead of `funnel`.
+
+### 2.3 Configure `.env`
+Open your `.env` file:
+```dotenv
+TAILSCALE_FUNNEL_URL=https://your-node.tailnet-xyz.ts.net
+```
+*(No `COMPOSE_PROFILES` change is needed for Tailscale since Tailscale runs on the host machine).*
+
+---
+
+## Option 3: Cloudflare Tunnel Setup
+
+If you manage your own domain through Cloudflare, Cloudflare Tunnels (formerly Argo Tunnel) provide robust DDoS protection and free SSL.
+
+### 3.1 Create a Cloudflare Tunnel
+1. Log into your [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Zero Trust** > **Networks** > **Tunnels**.
+2. Click **Create a Tunnel** and select **Cloudflared**.
+3. Name your tunnel (e.g., `automorph-tunnel`) and click **Save Tunnel**.
+4. In the installation command section, choose **Docker**. You will see a command containing a long token string:
+   ```text
+   docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token eyJh...
+   ```
+   Copy only the token string (`eyJh...`).
+
+### 3.2 Route Traffic to AutoMorph
+Under the **Public Hostname** tab:
+* **Subdomain**: e.g., `patcher` (or leave blank for root domain)
+* **Domain**: select your registered domain (e.g., `yourdomain.com`)
+* **Type**: `HTTP`
+* **URL**: `automorph:8080` *(uses the Docker container service name)*
+
+Click **Save hostname**.
+
+### 3.3 Configure `.env`
+Open your `.env` file:
+```dotenv
+# Enable the Cloudflare profile
+COMPOSE_PROFILES=cloudflare
+
+# Cloudflare Token & Public URL
+CLOUDFLARE_TUNNEL_TOKEN=eyJh...your_token_here...
+CLOUDFLARE_TUNNEL_URL=https://patcher.yourdomain.com
+```
+
+---
+
+## Starting Services & Viewing Logs
+
+After configuring your chosen tunnel in `.env`:
+
+1. Start or reload Docker Compose:
+   ```bash
+   docker compose up -d
+   ```
+2. Verify that the tunnel container is running:
+   ```bash
+   docker compose ps
+   ```
+3. Check live tunnel logs to ensure connections are established:
+   ```bash
+   # For Pangolin
+   docker compose logs -f pangolin
+
+   # For Cloudflare
+   docker compose logs -f cloudflared
+   ```
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><b>Can I run multiple tunnels simultaneously?</b></summary>
+
+Yes! AutoMorph's dispatcher script and notification system support multiple active endpoints. You can combine profiles:
+```dotenv
+COMPOSE_PROFILES=cloudflare,pangolin
+```
+Both tunnel links will appear in your notification emails with dedicated badges!
+</details>
+
+<details>
+<summary><b>The tunnel is connected, but the web page returns 502 Bad Gateway.</b></summary>
+
+A 502 indicates the tunnel container cannot reach `automorph:8080`.
+* Check if the main AutoMorph container is running: `docker compose ps`
+* Inspect AutoMorph logs: `docker compose logs -f automorph`
+* Ensure the target hostname in your tunnel config is `automorph` (the Docker service name) and port is `8080`.
+</details>
+
+---
+
+[← Previous: Oracle Setup](oracle-setup.md) | [Documentation Hub](README.md) | [Next: User Guide →](user-guide.md)
