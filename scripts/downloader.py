@@ -40,8 +40,7 @@ class Downloader:
 
     def download_package(self, result: dict, outer_dir: Path, split_dir: Path) -> tuple[dict | None, str | None]: 
         success, reason = False, None
-        package_name, version_name, version_code, arch, apkpure_dl_link, apkcombo_dl_link, uptodown_dl_link, git_dl_link, apkmirror_url, apkmirror_versioncode = result['package_name'], result['versionname'], result['versioncode'], result['arch'], result['apkpure_dl_link'], result['apkcombo_dl_link'], result['uptodown_dl_link'], result['git_dl_link'], result['apkmirror_url'], result['apkmirror_versioncode']
-        sources = {"GitHub": git_dl_link, "gplay": None, "uptodown": uptodown_dl_link, "apkcombo": apkcombo_dl_link, "apkpure": apkpure_dl_link}
+        package_name, version_name, version_code, arch, sources, apkmirror_versioncode, apkmirror_url = result['package_name'], result['versionname'], result['versioncode'], result['arch'], result['sources'], result['apkmirror_versioncode'], result['apkmirror_url']
         version_codes = [v for v in [version_code, apkmirror_versioncode] if v is not None]
 
         for source, link in sources.items():

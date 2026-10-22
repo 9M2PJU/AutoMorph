@@ -24,7 +24,8 @@
 #   "arch": "...",
 #   "apkpure_dl_link": "https://...",
 #   "apkcombo_dl_link": "https://...",
-#   "uptodown_dl_link": "https://..."
+#   "uptodown_dl_link": "https://...",
+#   "aptoide_dl_link": "https://..."
 # }
 #
 # Partial success (one source failed): same shape, with the failed link set to
@@ -39,6 +40,7 @@
 #   "apkpure_dl_link": null,
 #   "apkcombo_dl_link": null,
 #   "uptodown_dl_link": null,
+#   "aptoide_dl_link": null,
 #   "error": "..."
 # }
 # ==============================================================================
@@ -104,6 +106,21 @@ UPTODOWN_CLIENT_HEADERS = {
     "Identificador": "Uptodown_Android",
     "Identificador-Version": "739",
     "Connection": "close",
+}
+
+APTOIDE_BASE_URLS = [
+    "https://ws75.aptoide.com/api/7",
+    "https://ws2.aptoide.com/api/7",
+    "https://ws75-cache.aptoide.com/api/7",
+]
+
+APTOIDE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/139.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
 }
 
 
@@ -1270,6 +1287,8 @@ def query_uptodown(
         base_app_url = re.sub(r"https?://([^/]+)\.en\.uptodown\.com", r"https://\1.uptodown.com", app_url)
         base_app_url = re.sub(r"https?://en\.uptodown\.com", r"https://www.uptodown.com", base_app_url).rstrip("/")
 
+        session = requests.Session()
+
         # Try candidate URLs (English /download first, then regional fallbacks)
         dl_candidates = [
             f"{app_url.rstrip('/')}/download",
@@ -1281,9 +1300,9 @@ def query_uptodown(
         dl_page_url = None
         for cand_url in dict.fromkeys(dl_candidates):
             try:
-                cand_html = fetch_html(cand_url)
-                if cand_html and ("detail-download-button" in cand_html or "detail-app-name" in cand_html):
-                    page_html = cand_html
+                cand_resp = session.get(cand_url, headers=HEADERS_BROWSER, timeout=6)
+                if cand_resp.status_code == 200 and ("detail-download-button" in cand_resp.text or "detail-app-name" in cand_resp.text):
+                    page_html = cand_resp.text
                     dl_page_url = cand_url
                     break
             except Exception:
@@ -1320,11 +1339,11 @@ def query_uptodown(
             if not latest_matches:
                 target_file_id = None
 
-                # 1. Inspect static /versions page (try canonical and original host)
-                for v_url in dict.fromkeys([f"{base_app_url}/versions", f"{app_url.rstrip('/')}/versions"]):
-                    try:
-                        ver_html = fetch_html(v_url)
-                        ver_soup = BeautifulSoup(ver_html, "html.parser")
+                # 1. Inspect static /versions page directly without heavy retry loops
+                try:
+                    ver_resp = session.get(f"{app_url.rstrip('/')}/versions", headers=HEADERS_BROWSER, timeout=6)
+                    if ver_resp.status_code == 200:
+                        ver_soup = BeautifulSoup(ver_resp.text, "html.parser")
                         if not app_id:
                             v_app_el = ver_soup.select_one("#detail-app-name")
                             if v_app_el:
@@ -1337,42 +1356,53 @@ def query_uptodown(
                                 if is_version_compatible(v_text, op, target_tuple, clean_ver):
                                     target_file_id = row.get("data-version-id") or row.get("data-file-id")
                                     break
-                        if target_file_id:
-                            break
-                    except Exception as e:
-                        logger.debug(f"Failed to fetch static versions page ({v_url}): {e}")
+                except Exception as e:
+                    logger.debug(f"Failed to fetch static versions page ({app_url}/versions): {e}")
 
-                # 2. Paginate via Uptodown AJAX endpoint if older version not on first page
+                # 2. Paginate via Uptodown AJAX endpoint in concurrent batches if older version not on static page
                 if not target_file_id and app_id:
                     ajax_headers = dict(HEADERS_BROWSER)
                     ajax_headers["X-Requested-With"] = "XMLHttpRequest"
                     ajax_headers["Accept"] = "application/json"
-                    max_pages = 20  # Up to 400 versions
-                    consecutive_errors = 0
-                    for page in range(1, max_pages + 1):
-                        api_url = f"{base_app_url}/apps/{app_id}/versions/{page}"
+
+                    def fetch_versions_page(p: int):
+                        url = f"{base_app_url}/apps/{app_id}/versions/{p}"
                         try:
-                            resp = requests.get(api_url, headers=ajax_headers, timeout=8)
-                            if resp.status_code != 200:
-                                consecutive_errors += 1
-                                if consecutive_errors >= 2:
-                                    break
-                                continue
-                            consecutive_errors = 0
-                            res_json = resp.json()
-                            if not res_json.get("success") or not res_json.get("data"):
+                            r = session.get(url, headers=ajax_headers, timeout=5)
+                            if r.status_code == 200:
+                                return p, r.json()
+                        except Exception:
+                            pass
+                        return p, None
+
+                    batch_size = 5
+                    max_pages = 15
+                    stop_paging = False
+
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
+                        for batch_start in range(1, max_pages + 1, batch_size):
+                            if stop_paging:
                                 break
-                            for item in res_json["data"]:
-                                v_text = item.get("version")
-                                if v_text and is_version_compatible(v_text, op, target_tuple, clean_ver):
-                                    target_file_id = str(item.get("fileID") or item.get("versionURL", {}).get("versionID"))
+                            pages = list(range(batch_start, min(batch_start + batch_size, max_pages + 1)))
+                            futures = {executor.submit(fetch_versions_page, p): p for p in pages}
+                            batch_results = {}
+                            for fut in concurrent.futures.as_completed(futures):
+                                p, res = fut.result()
+                                batch_results[p] = res
+
+                            for p in sorted(batch_results.keys()):
+                                res = batch_results[p]
+                                if not res or not res.get("success") or not res.get("data"):
+                                    stop_paging = True
+                                    continue
+                                for item in res["data"]:
+                                    v_text = item.get("version")
+                                    if v_text and is_version_compatible(v_text, op, target_tuple, clean_ver):
+                                        target_file_id = str(item.get("fileID") or item.get("versionURL", {}).get("versionID"))
+                                        break
+                                if target_file_id:
                                     break
                             if target_file_id:
-                                break
-                        except Exception as e:
-                            logger.debug(f"Uptodown pagination failed on page {page}: {e}")
-                            consecutive_errors += 1
-                            if consecutive_errors >= 2:
                                 break
 
                 if not target_file_id:
@@ -1388,6 +1418,108 @@ def query_uptodown(
 
     except Exception as e:
         return None, f"Uptodown: {e}"
+
+
+def query_aptoide(
+    package_name: str,
+    target_version: str | None = None,
+    arch: str = "arm64-v8a",
+    timeout: int = 12,
+) -> tuple[str | None, str | None, str | None]:
+    """
+    Query Aptoide API v7 for versionCode and direct APK download URL.
+    Returns: (version_code, download_url, error_message)
+    """
+    op, clean_ver, target_tuple = parse_version_constraint(target_version)
+    clean_target = clean_ver or (normalise_version(target_version) if target_version else None)
+    is_specific = op not in ("latest", "any") and bool(clean_target)
+
+    session = requests.Session()
+    session.headers.update(APTOIDE_HEADERS)
+
+    for base_url in APTOIDE_BASE_URLS:
+        try:
+            # 1. Fetch latest metadata via app/getMeta
+            resp = session.get(f"{base_url}/app/getMeta", params={"package_name": package_name}, timeout=timeout)
+            if resp.status_code == 404:
+                return None, None, f"Aptoide: App '{package_name}' not found"
+            if resp.status_code != 200:
+                continue
+
+            payload = resp.json()
+            data = payload.get("data") or payload.get("nodes", {}).get("meta", {}).get("data")
+            if not data:
+                continue
+
+            file_info = data.get("file", {})
+            latest_vername = file_info.get("vername", "")
+            latest_clean_ver = normalise_version(latest_vername) or latest_vername
+            latest_vercode = str(file_info.get("vercode")) if file_info.get("vercode") is not None else None
+            latest_dl_url = file_info.get("path") or file_info.get("path_alt")
+
+            # 1. Target is latest, any, or matches current build
+            if not is_specific or (latest_clean_ver and is_version_compatible(latest_clean_ver, op, target_tuple, clean_target)):
+                if latest_dl_url:
+                    return latest_vercode, latest_dl_url, None
+
+            # 2. Search historical releases list via listAppVersions with pagination
+            matched_entry = None
+            max_offset = 250  # Check up to 250 historical versions
+            for offset in range(0, max_offset, 50):
+                hist_resp = session.get(
+                    f"{base_url}/listAppVersions",
+                    params={"package_name": package_name, "limit": 50, "offset": offset},
+                    timeout=timeout,
+                )
+                if hist_resp.status_code != 200:
+                    break
+                hist_data = hist_resp.json()
+                version_list = hist_data.get("list", [])
+                if not version_list:
+                    break
+                for entry in version_list:
+                    e_file = entry.get("file", {})
+                    v_raw = e_file.get("vername", "")
+                    v_clean = normalise_version(v_raw) or v_raw
+                    if v_clean and is_version_compatible(v_clean, op, target_tuple, clean_target):
+                        matched_entry = entry
+                        break
+                if matched_entry:
+                    break
+                total = hist_data.get("info", {}).get("pagination", {}).get("total", 0)
+                if offset + len(version_list) >= total:
+                    break
+
+            if matched_entry:
+                e_file = matched_entry.get("file", {})
+                vercode = str(e_file.get("vercode")) if e_file.get("vercode") is not None else None
+                dl_url = e_file.get("path") or e_file.get("path_alt")
+
+                # If download link requires resolving app_id
+                if not dl_url and matched_entry.get("id"):
+                    app_id = matched_entry["id"]
+                    detail_resp = session.get(
+                        f"{base_url}/app/getMeta",
+                        params={"app_id": app_id},
+                        timeout=min(timeout, 10),
+                    )
+                    if detail_resp.status_code == 200:
+                        d_file = detail_resp.json().get("data", {}).get("file", {})
+                        dl_url = d_file.get("path") or d_file.get("path_alt")
+                        if not vercode and d_file.get("vercode") is not None:
+                            vercode = str(d_file.get("vercode"))
+
+                if dl_url:
+                    return vercode, dl_url, None
+                return vercode, None, f"Aptoide: Found version '{target_version}' but could not obtain download link"
+
+            return None, None, f"Aptoide: Version '{target_version}' not found for '{package_name}'"
+
+        except Exception as exc:
+            logger.debug(f"[Aptoide] Base {base_url} failed for {package_name}: {exc}")
+            continue
+
+    return None, None, f"Aptoide: Lookup failed for {package_name}"
 
 
 # ==========================================================================
@@ -2043,6 +2175,44 @@ def _probe_apkpure_latest(package_name: str, arch: str, allow_betas: bool, timeo
         return None
 
 
+def _probe_aptoide_latest(package_name: str, arch: str, allow_betas: bool, timeout: int) -> dict | None:
+    try:
+        params = {"package_name": package_name}
+        for base_url in APTOIDE_BASE_URLS:
+            try:
+                resp = requests.get(
+                    f"{base_url}/app/getMeta",
+                    params=params,
+                    headers=APTOIDE_HEADERS,
+                    timeout=timeout,
+                )
+                if resp.status_code == 200:
+                    payload = resp.json()
+                    data = payload.get("data") or payload.get("nodes", {}).get("meta", {}).get("data")
+                    if not data:
+                        continue
+                    file_info = data.get("file", {})
+                    raw_ver = file_info.get("vername", "")
+                    clean_ver = normalise_version(raw_ver)
+                    if not clean_ver:
+                        return None
+                    if not allow_betas and is_beta_version(raw_ver):
+                        return None
+                    vc = str(file_info.get("vercode")) if file_info.get("vercode") is not None else None
+                    return {
+                        "source": "aptoide",
+                        "version": clean_ver,
+                        "version_code": vc,
+                        "raw_version": raw_ver,
+                    }
+            except Exception:
+                continue
+        return None
+    except Exception as e:
+        log("Aptoide", f"Latest version probe failed for {package_name}: {e}")
+        return None
+
+
 def _probe_google_play_latest(package_name: str, arch: str, allow_betas: bool, timeout: int) -> dict | None:
     try:
         goopdl_bin = "goopdl"
@@ -2168,6 +2338,7 @@ def get_latest_version(
     source_labels = {
         "google_play": "Google Play",
         "uptodown": "Uptodown",
+        "aptoide": "Aptoide",
         "apkcombo": "APKCombo",
         "apkpure": "APKPure",
         "github": "GitHub",
@@ -2220,11 +2391,12 @@ def get_latest_version(
     candidates: list[dict] = []
     sources_checked: dict[str, str] = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_source = {
             executor.submit(_probe_uptodown_latest, package_name, arch, allow_betas, timeout): "uptodown",
             executor.submit(_probe_apkcombo_latest, package_name, arch, allow_betas, timeout): "apkcombo",
             executor.submit(_probe_apkpure_latest, package_name, arch, allow_betas, timeout): "apkpure",
+            executor.submit(_probe_aptoide_latest, package_name, arch, allow_betas, timeout): "aptoide",
             executor.submit(_probe_google_play_latest, package_name, arch, allow_betas, max(timeout, 25)): "google_play",
         }
         for future in concurrent.futures.as_completed(future_to_source):
@@ -2264,8 +2436,8 @@ def get_latest_version(
         c["padded_tuple"] = pad_version_tuple(c["tuple"], max_len)
 
     # Source tie-breaking priority when version is identical:
-    # Google Play > Uptodown > APKCombo > APKPure
-    source_priority = {"google_play": 4, "uptodown": 3, "apkcombo": 2, "apkpure": 1}
+    # Google Play > Uptodown > Aptoide > APKCombo > APKPure
+    source_priority = {"google_play": 5, "uptodown": 4, "aptoide": 3, "apkcombo": 2, "apkpure": 1}
 
     def sort_key(cand: dict) -> tuple[tuple[int, ...], int]:
         src_rank = source_priority.get(cand["source"], 0)
@@ -2326,6 +2498,8 @@ def process_package(
     apkpure_dl_link = None
     apkcombo_dl_link = None
     uptodown_dl_link = None
+    aptoide_dl_link = None
+    aptoide_version_code = None
     apkmirror_url = None
     apkmirror_version_code = None
     error_msg = None
@@ -2447,6 +2621,31 @@ def process_package(
             log("Uptodown", f"Failed: {error}")
 
         # ==========================================================================
+        # STEP 3.4: APTOIDE
+        # ==========================================================================
+
+        try:
+            log("Aptoide", f"Looking up {package_name} ({arch})...")
+            aptoide_vc, aptoide_dl, aptoide_err = query_aptoide(package_name, target_version, arch)
+            if aptoide_dl:
+                aptoide_dl_link = aptoide_dl
+                aptoide_version_code = aptoide_vc
+                log("Aptoide", f"Selected: version_code {aptoide_version_code}")
+                log("Aptoide", "Download link found.")
+            elif aptoide_vc:
+                aptoide_version_code = aptoide_vc
+                log("Aptoide", f"Selected: version_code {aptoide_version_code}")
+                if aptoide_err:
+                    errors.append(aptoide_err)
+            elif aptoide_err:
+                errors.append(aptoide_err)
+                log("Aptoide", f"Failed: {aptoide_err}")
+        except Exception as e:
+            error = str(e)
+            errors.append(f"Aptoide: {error}")
+            log("Aptoide", f"Failed: {error}")
+
+        # ==========================================================================
         # STEP 3.5: APKMIRROR LOOKUP (PROACTIVE OR FALLBACK / RESOLVER)
         # ==========================================================================
 
@@ -2458,7 +2657,7 @@ def process_package(
 
         version_codes = {
             vc
-            for vc in (apkpure_version_code, apkcombo_version_code)
+            for vc in (apkpure_version_code, apkcombo_version_code, aptoide_version_code)
             if vc is not None
         }
 
@@ -2487,12 +2686,13 @@ def process_package(
             resolved_version_name = clean_ver or normalise_version(target_version) or target_version
 
         if len(version_codes) > 1:
-            error_msg = (
-                f"Version code mismatch: "
-                f"APKPure={apkpure_version_code}, "
-                f"APKCombo={apkcombo_version_code}"
-                + (f", APKMirror={apkmirror_version_code}" if apkmirror_version_code else "")
-            )
+            mismatch_parts = [
+                f"APKPure={apkpure_version_code}" if apkpure_version_code else None,
+                f"APKCombo={apkcombo_version_code}" if apkcombo_version_code else None,
+                f"Aptoide={aptoide_version_code}" if aptoide_version_code else None,
+                f"APKMirror={apkmirror_version_code}" if apkmirror_version_code else None,
+            ]
+            error_msg = f"Version code mismatch: {', '.join(p for p in mismatch_parts if p)}"
         elif version_codes:
             version_code = version_codes.pop()
         else:
@@ -2511,6 +2711,7 @@ def process_package(
         "uptodown": uptodown_dl_link,
         "apkcombo": apkcombo_dl_link,
         "apkpure": apkpure_dl_link,
+        "aptoide": aptoide_dl_link,
     }
 
     result = {
@@ -2524,8 +2725,9 @@ def process_package(
         "uptodown_dl_link": uptodown_dl_link,
         "git_dl_link": git_dl_link,
         "apkmirror_url": apkmirror_url,
-        "apkmirror_version_code": apkmirror_version_code,
         "apkmirror_versioncode": apkmirror_version_code,
+        "aptoide_dl_link": aptoide_dl_link,
+        "aptoide_versioncode": aptoide_version_code,
     }
 
     if error_msg:
