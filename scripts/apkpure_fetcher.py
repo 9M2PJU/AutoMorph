@@ -242,27 +242,15 @@ def is_version_compatible(candidate_ver: str, op: str, target_tuple: tuple[int, 
 
 
 def fetch_html(url: str, source: str | None = None) -> str:
-    if source == "apkmirror":
-        # First attempt: curl subprocess with Obtainium headers (negotiates HTTP/2 with modern ALPN)
-        try:
-            cmd = [
-                "curl",
-                "-sL",
-                "-m", "25",
-                "-H", f"User-Agent: {APK_MIRROR_HEADERS['User-Agent']}",
-                "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                "-H", "Accept-Language: en-US,en;q=0.9",
-                url,
-            ]
-            res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            if res.stdout and len(res.stdout) > 200:
-                return res.stdout
-        except Exception:
-            pass
+    headers = APK_MIRROR_HEADERS if source == "apkmirror" else HEADERS_BROWSER
+    try:
+        resp = requests.get(url, headers=headers, timeout=25)
+        if resp.ok and len(resp.text) > 200:
+            return resp.text
+    except Exception:
+        pass
 
-        req = urllib.request.Request(url, headers=APK_MIRROR_HEADERS)
-    else:
-        req = urllib.request.Request(url, headers=HEADERS_BROWSER)
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as response:
         return response.read().decode("utf-8", errors="replace")
 
@@ -1505,20 +1493,20 @@ def make_github_dl_link(package_name: str, target_version: str, repo: str, patte
 def query_apkmirror_app_exists(package_name: str) -> dict | None:
     """Query APKMirror's REST API for app info using Obtainium's credential."""
     try:
-        cmd = [
-            "curl",
-            "-s",
-            "-m", "15",
-            "-H", f"Authorization: {APKMIRROR_API_AUTH}",
-            "-H", f"User-Agent: {APK_MIRROR_HEADERS['User-Agent']}",
-            "-H", "Content-Type: application/json",
-            "-H", "Accept: application/json",
-            "-d", json.dumps({"pnames": [package_name]}),
+        headers = {
+            "Authorization": APKMIRROR_API_AUTH,
+            "User-Agent": APK_MIRROR_HEADERS["User-Agent"],
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        res = requests.post(
             APKMIRROR_API_URL,
-        ]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        if res.stdout:
-            data = json.loads(res.stdout)
+            json={"pnames": [package_name]},
+            headers=headers,
+            timeout=15,
+        )
+        if res.ok:
+            data = res.json()
             entries = data.get("data", [])
             if entries and isinstance(entries, list) and entries[0].get("exists"):
                 return entries[0]
