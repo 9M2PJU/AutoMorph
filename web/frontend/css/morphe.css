@@ -1496,11 +1496,55 @@ a.drawer-patch-owner-chip:hover,
   border: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: var(--transition);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .catalog-item-card:hover, .catalog-item-card.selected {
   border-color: var(--primary-cyan);
   background: var(--bg-surface-hover);
+}
+
+.catalog-item-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.catalog-item-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.catalog-item-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.catalog-item-pkg {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+}
+
+.catalog-item-badge {
+  font-size: 0.6875rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .form-group {
@@ -1781,6 +1825,7 @@ a.drawer-patch-owner-chip:hover,
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .patch-filter-pill:hover, .patch-filter-pill.active {
@@ -1808,13 +1853,21 @@ a.drawer-patch-owner-chip:hover,
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1;
-  min-width: 260px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .patch-filter-search-group .search-input-wrap {
-  flex: 1;
+  flex: 0 1 200px;
+  min-width: 0 !important;
   max-width: 220px;
+  width: 200px;
+}
+
+.patch-filter-search-group .search-input {
+  padding: 7px 12px 7px 34px;
+  font-size: 0.8125rem;
+  height: 34px;
 }
 
 .patch-repo-filter-wrap {
@@ -1822,6 +1875,7 @@ a.drawer-patch-owner-chip:hover,
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex: 0 1 auto;
 }
 
 .patch-repo-filter-wrap label {
@@ -1834,7 +1888,7 @@ a.drawer-patch-owner-chip:hover,
 
 .patch-repo-select {
   width: auto;
-  max-width: 260px;
+  max-width: 200px;
   padding: 4px 8px;
   font-size: 0.8125rem;
   text-overflow: ellipsis;
@@ -1847,6 +1901,9 @@ a.drawer-patch-owner-chip:hover,
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .patch-pills-divider {
@@ -1854,6 +1911,7 @@ a.drawer-patch-owner-chip:hover,
   height: 18px;
   background: var(--border-subtle);
   margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .patch-actions-row {
@@ -1861,6 +1919,13 @@ a.drawer-patch-owner-chip:hover,
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+#wiz-selected-pkg-label,
+#wiz-patches-pkg-label,
+#edit-app-pkg {
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .patch-title-text {
@@ -2656,6 +2721,20 @@ body {
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
   }
+
+  /* Catalog items in Wizard Step 1 on mobile */
+  .catalog-item-card {
+    padding: 10px 12px !important;
+    gap: 10px !important;
+  }
+
+  .catalog-item-name {
+    font-size: 0.875rem !important;
+  }
+
+  .catalog-item-pkg {
+    font-size: 0.6875rem !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2723,6 +2802,16 @@ body {
   /* Compact action button text on very small screens */
   .patch-actions-row .btn span:not(.material-symbols-rounded) {
     font-size: 0.6875rem !important;
+  }
+
+  .catalog-item-card {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .catalog-item-badge {
+    font-size: 0.625rem !important;
+    padding: 2px 6px !important;
   }
 }
 

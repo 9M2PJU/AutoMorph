@@ -3268,26 +3268,35 @@ async function searchCatalog(query) {
     const icon = item.icon_url ? `<img src="${item.icon_url}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover;" onerror="this.src='https://github.com/ghost.png?size=32'">` : `<span class="material-symbols-rounded">android</span>`;
 
     return `
-      <div class="catalog-item-card ${isSelected ? 'selected' : ''}" onclick="selectCatalogApp('${item.package}', '${escapeHtml(item.name)}')">
-        <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+      <div class="catalog-item-card ${isSelected ? 'selected' : ''}" onclick="selectCatalogApp(this, '${item.package}', '${escapeHtml(item.name)}')" title="${escapeHtml(item.name)} (${item.package})">
+        <div class="catalog-item-icon">
           ${icon}
         </div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 600; font-size: 0.9375rem;">${escapeHtml(item.name)}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">${item.package}</div>
+        <div class="catalog-item-info">
+          <div class="catalog-item-name">${escapeHtml(item.name)}</div>
+          <div class="catalog-item-pkg" title="${item.package}">${item.package}</div>
         </div>
-        <span class="badge badge-info" style="font-size: 0.6875rem;">${item.supported_repos?.length || 0} Repos</span>
+        <span class="badge badge-info catalog-item-badge">${item.supported_repos?.length || 0} Repos</span>
       </div>
     `;
   }).join('');
 }
 
-function selectCatalogApp(pkg, name) {
+function selectCatalogApp(cardEl, pkg, name) {
+  if (typeof cardEl === 'string') {
+    name = pkg;
+    pkg = cardEl;
+    cardEl = null;
+  }
   state.wizard.selectedPackage = pkg;
   state.wizard.selectedAppName = name;
 
   document.querySelectorAll('.catalog-item-card').forEach(el => el.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
+  if (cardEl && cardEl.classList) {
+    cardEl.classList.add('selected');
+  } else if (window.event?.currentTarget) {
+    window.event.currentTarget.classList.add('selected');
+  }
 }
 
 async function loadSuggestedReposForPackage(pkg) {
