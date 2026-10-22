@@ -3461,17 +3461,17 @@ function addSuggestedRepoItem(repo, isChecked = true) {
 
 function createRepoCheckboxElement(url, label, badgeText, isChecked = false, onToggleChange = null) {
   const div = document.createElement('label');
-  div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;';
+  div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; gap: 8px;';
 
   div.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <input type="checkbox" value="${url}" ${isChecked ? 'checked' : ''}>
-      <span style="font-weight: 600; font-size: 0.875rem;">${escapeHtml(label)}</span>
-      <a href="${escapeHtml(formatRepoUrl(url))}" target="_blank" rel="noopener noreferrer" class="repo-row-link" title="Open repository in new tab" onclick="event.stopPropagation()">
+    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+      <input type="checkbox" value="${url}" ${isChecked ? 'checked' : ''} style="flex-shrink: 0;">
+      <span class="repo-row-label" style="font-weight: 600; font-size: 0.875rem;">${escapeHtml(label)}</span>
+      <a href="${escapeHtml(formatRepoUrl(url))}" target="_blank" rel="noopener noreferrer" class="repo-row-link" title="Open repository in new tab" onclick="event.stopPropagation()" style="flex-shrink: 0; display: inline-flex; align-items: center;">
         <span class="material-symbols-rounded" style="font-size: 14px;">open_in_new</span>
       </a>
     </div>
-    <span class="badge badge-info">${badgeText}</span>
+    <span class="badge badge-info" style="flex-shrink: 0;">${badgeText}</span>
   `;
 
   div.querySelector('input').addEventListener('change', (e) => {
@@ -4019,10 +4019,10 @@ function renderPatchCardHtml(patch, isWizard) {
     <div class="patch-card ${patch.enabled ? 'active' : ''}">
       <div class="patch-header-row">
         <div class="patch-title">
-          <span class="material-symbols-rounded" style="font-size: 18px; color: ${patch.enabled ? 'var(--primary-cyan)' : 'var(--text-dim)'};">
+          <span class="material-symbols-rounded" style="font-size: 18px; color: ${patch.enabled ? 'var(--primary-cyan)' : 'var(--text-dim)'}; flex-shrink: 0;">
             ${patch.enabled ? 'check_circle' : 'radio_button_unchecked'}
           </span>
-          <span style="font-weight: 600;">${escapedName}</span>
+          <span class="patch-title-text" style="font-weight: 600;">${escapedName}</span>
           ${patch.defaultEnabled ? '<span class="badge badge-info" style="font-size: 0.6875rem;">Default</span>' : ''}
           <span class="patch-scope-chip ${isAppScope ? 'app-specific' : 'universal'}">
             <span class="material-symbols-rounded" style="font-size: 12px;">${isAppScope ? 'category' : 'public'}</span>
@@ -4033,7 +4033,7 @@ function renderPatchCardHtml(patch, isWizard) {
             <span>${escapedOwner}</span>
           </span>
         </div>
-        <label class="switch" title="${patch.enabled ? 'Enabled' : 'Disabled'}">
+        <label class="switch" title="${patch.enabled ? 'Enabled' : 'Disabled'}" style="flex-shrink: 0;">
           <input type="checkbox" ${patch.enabled ? 'checked' : ''} onchange="${toggleFn}('${escapedOwner}', '${escapedName}', this.checked)">
           <span class="switch-slider"></span>
         </label>

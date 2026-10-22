@@ -1789,6 +1789,97 @@ a.drawer-patch-owner-chip:hover,
   color: var(--primary-cyan);
 }
 
+/* Patch Filter Toolbar */
+.patch-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  background: var(--bg-surface-elevated);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-sizing: border-box;
+}
+
+.patch-filter-search-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.patch-filter-search-group .search-input-wrap {
+  flex: 1;
+  max-width: 220px;
+}
+
+.patch-repo-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.patch-repo-filter-wrap label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.patch-repo-select {
+  width: auto;
+  max-width: 260px;
+  padding: 4px 8px;
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.patch-pills-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.patch-pills-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+}
+
+.patch-actions-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.patch-title-text {
+  word-break: break-word;
+}
+
+.repo-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.repo-selection-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-subtle);
+}
+
 .modal-tab-nav {
   display: flex;
   gap: 6px;
@@ -2431,6 +2522,140 @@ body {
   .email-wiz-grid-2-1 {
     grid-template-columns: 1fr !important;
   }
+
+  /* Patch Configuration & Filter Toolbar Mobile */
+  .patch-header-top {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .patch-header-top button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .patch-filter-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+  }
+
+  .patch-filter-search-group {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .patch-filter-search-group .search-input-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .patch-repo-filter-wrap {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .patch-repo-filter-wrap label {
+    flex-shrink: 0 !important;
+  }
+
+  .patch-repo-filter-wrap .patch-repo-select {
+    flex: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .edit-patch-top-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .edit-patch-top-actions {
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+
+  .patch-pills-row {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+  }
+
+  .patch-pills-divider {
+    display: none !important;
+  }
+
+  .patch-actions-row {
+    width: 100% !important;
+    display: flex !important;
+    gap: 6px !important;
+  }
+
+  .patch-actions-row .btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 6px 4px !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+  }
+
+  .patch-actions-row .btn .material-symbols-rounded {
+    font-size: 16px !important;
+  }
+
+  /* Patch Cards on Mobile */
+  .patch-header-row {
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .patch-title {
+    flex-wrap: wrap !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+  }
+
+  .patch-title-text {
+    word-break: break-word !important;
+    max-width: 100% !important;
+  }
+
+  .patch-scope-chip,
+  .patch-repo-badge {
+    font-size: 0.625rem !important;
+    padding: 1px 5px !important;
+  }
+
+  /* Repo Selection on Mobile */
+  .repo-selection-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  .repo-selection-divider {
+    display: none !important;
+  }
+
+  .repo-row-label {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2470,6 +2695,34 @@ body {
   #res-modal-filepath {
     max-width: 100% !important;
     text-align: center !important;
+  }
+
+  /* Wizard Step 1: collapse Custom Package button text to icon-only */
+  #btn-wiz-toggle-custom span:not(.material-symbols-rounded) {
+    display: none !important;
+  }
+
+  #btn-wiz-toggle-custom {
+    padding: 6px 10px !important;
+  }
+
+  /* Wizard Step 3 count label and repo badge stack cleanly */
+  .patch-summary-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+
+  .patch-summary-row span:last-child {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Compact action button text on very small screens */
+  .patch-actions-row .btn span:not(.material-symbols-rounded) {
+    font-size: 0.6875rem !important;
   }
 }
 
