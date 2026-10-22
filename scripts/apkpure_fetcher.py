@@ -1259,7 +1259,12 @@ def query_uptodown(
         if not app_url:
             return None, f"Uptodown: Could not find app page for '{package_name}'"
 
-        dl_page_url = f"{app_url.rstrip('/')}/download"
+        # Uptodown's /versions and /apps/... endpoints 404 on the .en. language subdomain.
+        # Normalize to the canonical subdomain/host URL.
+        base_app_url = re.sub(r"https?://([^/]+)\.en\.uptodown\.com", r"https://\1.uptodown.com", app_url)
+        base_app_url = re.sub(r"https?://en\.uptodown\.com", r"https://www.uptodown.com", base_app_url).rstrip("/")
+
+        dl_page_url = f"{base_app_url}/download"
         page_html = fetch_html(dl_page_url)
         soup = BeautifulSoup(page_html, "html.parser")
 
@@ -1279,31 +1284,73 @@ def query_uptodown(
         version_div = soup.select_one("div.version")
         latest_ver = version_div.get_text(strip=True) if version_div else None
 
-        # If a specific target_version is requested and doesn't match latest, inspect /versions
-        if (
-            target_version
-            and target_version.lower() not in ("latest", "any", "any / latest")
-            and latest_ver
-            and normalise_version(latest_ver) != normalise_version(target_version)
-        ):
-            versions_url = f"{app_url.rstrip('/')}/versions"
-            try:
-                ver_html = fetch_html(versions_url)
-                ver_soup = BeautifulSoup(ver_html, "html.parser")
-                op, clean_ver, target_tuple = parse_version_constraint(target_version)
+        is_specific_version = target_version and target_version.lower() not in ("latest", "any", "any / latest", "0.0.0")
 
-                found_file_id = None
-                for row in ver_soup.select("#versions-items-list div[data-version-id], section.versions div[data-version-id], div[data-version-id], div[data-file-id]"):
-                    v_span = row.select_one("span.version")
-                    if v_span:
-                        v_text = v_span.get_text(strip=True)
-                        if is_version_compatible(v_text, op, target_tuple, clean_ver):
-                            found_file_id = row.get("data-version-id") or row.get("data-file-id")
-                            break
-                if found_file_id:
-                    file_id = found_file_id
-            except Exception:
-                pass
+        # If a specific target_version is requested, check if latest matches or search /versions
+        if is_specific_version:
+            op, clean_ver, target_tuple = parse_version_constraint(target_version)
+            latest_matches = latest_ver and is_version_compatible(latest_ver, op, target_tuple, clean_ver)
+
+            if not latest_matches:
+                target_file_id = None
+
+                # 1. Inspect static /versions page
+                versions_url = f"{base_app_url}/versions"
+                try:
+                    ver_html = fetch_html(versions_url)
+                    ver_soup = BeautifulSoup(ver_html, "html.parser")
+                    if not app_id:
+                        v_app_el = ver_soup.select_one("#detail-app-name")
+                        if v_app_el:
+                            app_id = v_app_el.get("data-code")
+
+                    for row in ver_soup.select("#versions-items-list div[data-version-id], section.versions div[data-version-id], div[data-version-id], div[data-file-id]"):
+                        v_span = row.select_one("span.version")
+                        if v_span:
+                            v_text = v_span.get_text(strip=True)
+                            if is_version_compatible(v_text, op, target_tuple, clean_ver):
+                                target_file_id = row.get("data-version-id") or row.get("data-file-id")
+                                break
+                except Exception as e:
+                    logger.debug(f"Failed to fetch static versions page ({versions_url}): {e}")
+
+                # 2. Paginate via Uptodown AJAX endpoint if older version not on first page
+                if not target_file_id and app_id:
+                    ajax_headers = dict(HEADERS_BROWSER)
+                    ajax_headers["X-Requested-With"] = "XMLHttpRequest"
+                    ajax_headers["Accept"] = "application/json"
+                    max_pages = 20  # Up to 400 versions
+                    consecutive_errors = 0
+                    for page in range(1, max_pages + 1):
+                        api_url = f"{base_app_url}/apps/{app_id}/versions/{page}"
+                        try:
+                            resp = requests.get(api_url, headers=ajax_headers, timeout=8)
+                            if resp.status_code != 200:
+                                consecutive_errors += 1
+                                if consecutive_errors >= 2:
+                                    break
+                                continue
+                            consecutive_errors = 0
+                            res_json = resp.json()
+                            if not res_json.get("success") or not res_json.get("data"):
+                                break
+                            for item in res_json["data"]:
+                                v_text = item.get("version")
+                                if v_text and is_version_compatible(v_text, op, target_tuple, clean_ver):
+                                    target_file_id = str(item.get("fileID") or item.get("versionURL", {}).get("versionID"))
+                                    break
+                            if target_file_id:
+                                break
+                        except Exception as e:
+                            logger.debug(f"Uptodown pagination failed on page {page}: {e}")
+                            consecutive_errors += 1
+                            if consecutive_errors >= 2:
+                                break
+
+                if not target_file_id:
+                    return None, f"Uptodown: Version '{target_version}' not found"
+
+                file_id = target_file_id
 
         if not app_id or not file_id:
             return None, f"Uptodown: Could not extract app_id or file_id from {dl_page_url}"
