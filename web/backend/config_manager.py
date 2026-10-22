@@ -460,7 +460,7 @@ def get_last_patch_result(package: str, patched_registry: dict[str, Any] | None 
 
                             raw_applied = rdata.get("appliedPatches") or []
                             raw_failed = rdata.get("failedPatches") or []
-                            steps = rdata.get("patchingSteps") or []
+                            steps = rdata.get("stepResults") or rdata.get("patchingSteps") or []
                             ver = ver_entry.name
                             pkg_ver = str(rdata.get("packageVersion") or ver_entry.name)
 

@@ -843,8 +843,7 @@ class Morphe:
                             self.repo_details[r]["sha"] = sha
                         target_shas[sha] = r
 
-                for patch in applied_patches_res:
-                    patch_name = patch.get('name', None)
+                for patch_name in applied_patches_res:
 
                     if len(repos) > 1:
                         if bundles:

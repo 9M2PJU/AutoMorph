@@ -5671,7 +5671,7 @@ async function viewResultJson(fileUrl, fileName, contextPath) {
     `;
 
     // Pipeline Steps
-    const steps = data.patchingSteps || [];
+    const steps = data.stepResults || data.patchingSteps || [];
     const stepsContainer = document.getElementById('res-steps-container');
     if (steps.length === 0) {
       stepsContainer.innerHTML = `<span style="color: var(--text-dim); font-size: 0.8125rem;">No explicit steps recorded.</span>`;
