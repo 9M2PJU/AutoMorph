@@ -250,6 +250,7 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
     targets = details['target_versions']
     patch_attempt = details.get('patch_attempt', 0)
     attempt_details = []
+    failed_downloads = set()
 
     while patch_attempt < (len(targets) * 2):
         if patch_attempt < len(targets):
@@ -257,11 +258,17 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
             target_tuple = targets[patch_attempt]
             target_version = target_tuple[0]
             patched_package = patched_dir / package_name / target_version / f"{package_name}_{target_version}_patched.apk"
-        elif patch_attempt >= len(targets):
+        else:
             run = 2
             target_tuple = targets[(patch_attempt - len(targets))]
             target_version = target_tuple[0]
             patched_package = patched_dir / package_name / target_version / f"{package_name}_{target_version}_patched.apk"
+
+            if len(failed_downloads) == len(targets):
+                break
+            if target_version in failed_downloads:
+                patch_attempt += 1
+                continue
 
         if patched_package.is_file() and not force:
             logger.info(f" └── [✓] {package_name} v{target_version} is already patched.")
@@ -271,6 +278,7 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
 
         if not patch_list:
             logger.warning(f" └── [!] Base APK download/verification failed for v{target_version}.")
+            failed_downloads.add(target_version)
             attempt_details.append({"version": target_version, "run": run, "stage": "Download / Verification", "reason": dl_reason or f"Base APK download/verification failed for v{target_version}"})
             patch_attempt += 1
             continue
@@ -297,15 +305,14 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
                 logger.warning(f"\n[✗] Only attempt failed for {package_name} when attempting all enabled patches. No other versions to try.")
                 return False, None, attempt_details, None, None, None
             
-            if patch_attempt < len(targets):
+            if patch_attempt < len(targets) - 1:
                 logger.info(f" └── [!] Patch failed on v{target_version} with all enabled patches attempted. Falling back to next version...")
             else:
                 logger.info(f" └── [!] Patch failed on v{target_version} with all enabled patches attempted. No more versions to try.")
                 logger.info(f"      └── Will attempt to patch {targets[0]} with only version compatible patches enabled...")
 
-
-        elif run == 2:
-            if patch_attempt < len(targets):
+        else:
+            if patch_attempt < (len(targets) * 2) - 1:
                 logger.info(f" └── [!] Patch failed on v{target_version} with version specific patches selected. Falling back to next version...")
  
         patch_attempt += 1
