@@ -44,8 +44,12 @@ class Downloader:
         sources = {"GitHub": git_dl_link, "gplay": None, "uptodown": uptodown_dl_link, "apkcombo": apkcombo_dl_link, "apkpure": apkpure_dl_link}
         version_codes = [v for v in [version_code, apkmirror_versioncode] if v is not None]
 
-        for source in sources:
-            success, reason = self.try_source(source, package_name, sources[source], outer_dir, version_name, arch, split_dir, version_codes)
+        for source, link in sources.items():
+            if source != "gplay" and not link:
+                logger.warning(f" └── [!] No {source} download URL provided for {package_name}")
+                continue
+
+            success, reason = self.try_source(source, package_name, link, outer_dir, version_name, arch, split_dir, version_codes)
             
             if success:
                 logger.info(" └── [✓] Ready to patch.")
@@ -60,8 +64,9 @@ class Downloader:
         if not dl_source:
             logger.error(f"Critical error: No dl_source {dl_source}. Exiting...")
             return False, "incorrect dl_source"
+        
         elif dl_source != "gplay":
-            success, response = self.link_dl(package_name, link, dl_source, outer_dir, version_name, arch)
+            success, response = self.link_dl(package_name, link, dl_source, outer_dir, version_name)
         else:
             success, response = self.gplay_dl(package_name, arch, version_codes, version_name, outer_dir, split_dir)
 
@@ -232,12 +237,8 @@ class Downloader:
             logger.critical(" └── [!] Download cancelled by user")
             raise
 
-    def link_dl(self, package_name: str, url: str | None, source: str, outer_dir: Path, version_name: str, arch: str, chunk_size: int = 128 * 1024) -> tuple[bool, str]:
+    def link_dl(self, package_name: str, url: str | None, source: str, outer_dir: Path, version_name: str, chunk_size: int = 128 * 1024) -> tuple[bool, str]:
         logger.info(f" ├── Downloading from {source}...") 
-
-        if not url:
-            logger.warning(f" └── [!] No {source} download URL provided for {package_name}")
-            return False, "no link"
 
         outer_dir.mkdir(parents=True, exist_ok=True)
 
