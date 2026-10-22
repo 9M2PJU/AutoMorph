@@ -868,8 +868,10 @@ class Morphe:
                 patch_aliases.setdefault(aliase, []).append(p)
 
         package_sha = self.make_sha(output)
+
+        package_size = self.get_size(output)
         
-        patched_data.setdefault(package_name, {})[version_name] = {'applied_patches': applied_patches, 'patch_aliases': patch_aliases, 'location': str(output), 'sha256': package_sha, 'repos': list(repos), 'strat': strat, 'attempt': attempt, 'arch': self.arch, 'time': timestamp}
+        patched_data.setdefault(package_name, {})[version_name] = {'applied_patches': applied_patches, 'patch_aliases': patch_aliases, 'location': str(output), **package_size, 'sha256': package_sha, 'repos': list(repos), 'strat': strat, 'attempt': attempt, 'arch': self.arch, 'time': timestamp}
 
         with open(patched_json, "w", encoding="utf-8") as f:
             json.dump(patched_data, f, indent=2)
@@ -892,3 +894,13 @@ class Morphe:
                 sha.update(chunk)
 
         return sha.hexdigest()
+
+    def get_size(self, package: Path) -> dict[str, int | str]:
+        size_in_bytes = package.stat().st_size
+        size = {'size_bytes': size_in_bytes}
+
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if size_in_bytes < 1024:
+                size['file_size'] = f"{size_in_bytes:.2f} {unit}"
+                return size
+            size_in_bytes /= 1024
