@@ -348,13 +348,13 @@ MORPHE_DEFAULT_APPS = {
     "com.google.android.youtube": {
         "name": "YouTube",
         "category": "Video",
-        "iconUrl": "https://play-lh.googleusercontent.com/6Xy_7_z21b8VzE9LqY3E21G5hZ5g-jD8y5pQ7s4x1w0z9u8v7t6r5q4p3o2n1m0=s128-rw",
+        "iconUrl": "https://play-lh.googleusercontent.com/QNmuZQc9I6Zbe3mWnSr0hycnENqGFCI5p3yE29Hkxtf22T0IWS6zTrpxULLyyjWpB7ONAXDsDQXnXcVWokl3eg=s128-rw",
         "description": "Official YouTube app with ad-blocking, background playback, and customization options.",
     },
     "com.google.android.apps.youtube.music": {
         "name": "YouTube Music",
         "category": "Music & Audio",
-        "iconUrl": "https://play-lh.googleusercontent.com/s_5l5Y_P_hYlVv1jX1Xw0B8uA1vYl3D_X9l4mG8A4b3K1zJ2N8P1q2R3S4T5U6V7=s128-rw",
+        "iconUrl": "https://play-lh.googleusercontent.com/MyptZXmcCyF59phIWPsNCfHq6zSO_ojEdw_4rMYYWPOGdikSjqeOXcoszBZ053VYpINe5K7ZR9KV1nkFWgxdOw=s128-rw",
         "description": "Official YouTube Music streaming app with ad-free listening and background play.",
     },
     "com.reddit.frontpage": {
@@ -397,6 +397,9 @@ def enrich_morphe_catalog(data: dict) -> dict:
             for k, v in info.items():
                 if not store[pkg].get(k):
                     store[pkg][k] = v
+            # Ensure official default apps have the up-to-date icon URL
+            if info.get("iconUrl"):
+                store[pkg]["iconUrl"] = info["iconUrl"]
 
     # Ensure official Morphe repository is present and targets default apps
     morphe_bundle = next(

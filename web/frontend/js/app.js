@@ -2945,7 +2945,7 @@ const MORPHE_DEFAULT_APPS = {
     name: 'YouTube',
     category: 'Video',
     description: 'Official YouTube app with ad-blocking, background playback, and customization options.',
-    icon_url: 'https://play-lh.googleusercontent.com/6Xy_7_z21b8VzE9LqY3E21G5hZ5g-jD8y5pQ7s4x1w0z9u8v7t6r5q4p3o2n1m0=s128-rw',
+    icon_url: 'https://play-lh.googleusercontent.com/QNmuZQc9I6Zbe3mWnSr0hycnENqGFCI5p3yE29Hkxtf22T0IWS6zTrpxULLyyjWpB7ONAXDsDQXnXcVWokl3eg=s128-rw',
     patch_count: 85,
   },
   'com.google.android.apps.youtube.music': {
@@ -2953,7 +2953,7 @@ const MORPHE_DEFAULT_APPS = {
     name: 'YouTube Music',
     category: 'Music & Audio',
     description: 'Official YouTube Music streaming app with ad-free listening and background play.',
-    icon_url: 'https://play-lh.googleusercontent.com/s_5l5Y_P_hYlVv1jX1Xw0B8uA1vYl3D_X9l4mG8A4b3K1zJ2N8P1q2R3S4T5U6V7=s128-rw',
+    icon_url: 'https://play-lh.googleusercontent.com/MyptZXmcCyF59phIWPsNCfHq6zSO_ojEdw_4rMYYWPOGdikSjqeOXcoszBZ053VYpINe5K7ZR9KV1nkFWgxdOw=s128-rw',
     patch_count: 25,
   },
   'com.reddit.frontpage': {
@@ -2969,7 +2969,8 @@ const MORPHE_DEFAULT_APPS = {
 let morpheCatalogData = null;
 try {
   sessionStorage.removeItem('morphe_catalog_data_v5');
-  const cachedCatalog = sessionStorage.getItem('morphe_catalog_data_v6');
+  sessionStorage.removeItem('morphe_catalog_data_v6');
+  const cachedCatalog = sessionStorage.getItem('morphe_catalog_data_v7');
   if (cachedCatalog) morpheCatalogData = JSON.parse(cachedCatalog);
 } catch (_) {}
 
@@ -2979,14 +2980,14 @@ async function fetchMorpheCatalog(force = false) {
   if (force) {
     morpheCatalogData = null;
     try {
-      sessionStorage.removeItem('morphe_catalog_data_v6');
+      sessionStorage.removeItem('morphe_catalog_data_v7');
     } catch (_) {}
   }
   if (morpheCatalogData) return morpheCatalogData;
 
   if (!force) {
     try {
-      const cached = sessionStorage.getItem('morphe_catalog_data_v6');
+      const cached = sessionStorage.getItem('morphe_catalog_data_v7');
       if (cached) {
         morpheCatalogData = JSON.parse(cached);
         return morpheCatalogData;
@@ -3050,9 +3051,20 @@ async function fetchMorpheCatalog(force = false) {
         };
       } else {
         if (sInfo.name && sInfo.name !== pkg) catalog[pkg].name = sInfo.name;
-        if (sInfo.iconUrl) catalog[pkg].icon_url = sInfo.iconUrl;
+        if (sInfo.iconUrl && !sInfo.iconUrl.includes('6Xy_7_z21b8') && !sInfo.iconUrl.includes('s_5l5Y_P_hYlV')) {
+          catalog[pkg].icon_url = sInfo.iconUrl;
+        }
         if (sInfo.description) catalog[pkg].description = sInfo.description;
         if (sInfo.category) catalog[pkg].category = sInfo.category;
+      }
+    }
+
+    // Ensure official default apps always maintain verified icons
+    for (const [defPkg, defInfo] of Object.entries(MORPHE_DEFAULT_APPS)) {
+      if (catalog[defPkg] && defInfo.icon_url) {
+        if (!catalog[defPkg].icon_url || catalog[defPkg].icon_url.includes('6Xy_7_z21b8') || catalog[defPkg].icon_url.includes('s_5l5Y_P_hYlV')) {
+          catalog[defPkg].icon_url = defInfo.icon_url;
+        }
       }
     }
 
@@ -3177,7 +3189,7 @@ async function fetchMorpheCatalog(force = false) {
 
     morpheCatalogData = catalog;
     try {
-      sessionStorage.setItem('morphe_catalog_data_v6', JSON.stringify(catalog));
+      sessionStorage.setItem('morphe_catalog_data_v7', JSON.stringify(catalog));
     } catch (_) {}
     return catalog;
   } catch (err) {
