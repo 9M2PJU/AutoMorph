@@ -2057,9 +2057,6 @@ function openEmailWizard() {
   const inpThreshold = document.getElementById('email-wiz-compact-threshold');
   if (inpThreshold) inpThreshold.value = email.compact_threshold || 15;
 
-  const chkChecksum = document.getElementById('email-wiz-checksum');
-  if (chkChecksum) chkChecksum.checked = !!email.calculate_checksum;
-
   const chkAttachJson = document.getElementById('email-wiz-attach-json');
   if (chkAttachJson) chkAttachJson.checked = !!email.attach_result_json;
 
@@ -2260,7 +2257,6 @@ function getEmailWizardConfigPayload() {
     subject_prefix: document.getElementById('email-wiz-subject-prefix')?.value.trim() || '[Morphe Patcher]',
     layout_mode: layoutValue,
     compact_threshold: parseInt(document.getElementById('email-wiz-compact-threshold')?.value || '15', 10),
-    calculate_checksum: document.getElementById('email-wiz-checksum')?.checked,
     attach_result_json: document.getElementById('email-wiz-attach-json')?.checked,
   };
 }
@@ -2292,9 +2288,8 @@ function renderEmailWizardReview() {
 
   const elLayout = document.getElementById('email-rev-layout');
   if (elLayout) {
-    const checkStr = cfg.calculate_checksum ? 'Checksums On' : 'Checksums Off';
     const jsonStr = cfg.attach_result_json ? 'Attach JSON On' : 'Attach JSON Off';
-    elLayout.textContent = `${cfg.layout_mode.toUpperCase()} • ${checkStr} • ${jsonStr}`;
+    elLayout.textContent = `${cfg.layout_mode.toUpperCase()} • ${jsonStr}`;
   }
 }
 

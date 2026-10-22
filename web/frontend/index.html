@@ -1440,7 +1440,7 @@
         <div id="email-wiz-step-4" class="wizard-content hidden">
           <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">Email Formatting & Attachments</h3>
           <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
-            Fine-tune layout density, SHA-256 integrity checksums, and JSON build artifacts.
+            Fine-tune layout density and JSON build artifacts.
           </p>
 
           <label class="form-label" style="margin-bottom: 10px;">Email Layout Presentation Mode</label>
@@ -1477,28 +1477,15 @@
           </div>
 
           <!-- Toggles -->
-          <div class="email-wiz-grid-2">
-            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-              <div>
-                <div style="font-weight: 600; font-size: 0.875rem;">SHA-256 Checksums</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Calculate & display APK checksums</div>
-              </div>
-              <label class="switch" style="margin-left: 12px;">
-                <input type="checkbox" id="email-wiz-checksum">
-                <span class="switch-slider"></span>
-              </label>
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <div>
+              <div style="font-weight: 600; font-size: 0.875rem;">Attach result.json</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Attach JSON build manifest to email</div>
             </div>
-
-            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-              <div>
-                <div style="font-weight: 600; font-size: 0.875rem;">Attach result.json</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Attach JSON build manifest to email</div>
-              </div>
-              <label class="switch" style="margin-left: 12px;">
-                <input type="checkbox" id="email-wiz-attach-json">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
+            <label class="switch" style="margin-left: 12px;">
+              <input type="checkbox" id="email-wiz-attach-json">
+              <span class="switch-slider"></span>
+            </label>
           </div>
         </div>
 
@@ -1530,7 +1517,7 @@
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: var(--text-dim);">Layout & Options:</td>
-                <td id="email-rev-layout" style="padding: 8px 0;">Auto Layout • Checksums Off • Attachments Off</td>
+                <td id="email-rev-layout" style="padding: 8px 0;">Auto Layout • Attachments Off</td>
               </tr>
             </table>
           </div>

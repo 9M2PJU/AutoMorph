@@ -115,7 +115,6 @@ class EmailSettingsRequest(BaseModel):
     sender_email: str | None = None
     recipients: list[str] | str | None = None
     subject_prefix: str | None = None
-    calculate_checksum: bool | None = None
     attach_result_json: bool | None = None
     layout_mode: str | None = None
     compact_threshold: int | None = None

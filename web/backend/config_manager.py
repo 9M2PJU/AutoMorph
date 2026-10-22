@@ -1188,8 +1188,6 @@ def get_all_settings() -> dict[str, Any]:
             "sender_email": str(email_data.get("sender_email") or ""),
             "recipients": [str(r).strip() for r in (email_data.get("recipients") or []) if str(r).strip()],
             "subject_prefix": str(email_data.get("subject_prefix") or "[AutoMorph]"),
-            "calculate_checksum": bool(email_data.get("calculate_checksum", email_data.get("include_checksum", False))),
-            "include_checksum": bool(email_data.get("calculate_checksum", email_data.get("include_checksum", False))),
             "attach_result_json": bool(email_data.get("attach_result_json")),
             "layout_mode": str(email_data.get("layout_mode") or "auto"),
             "compact_threshold": int(email_data.get("compact_threshold") or 15),
@@ -1287,14 +1285,8 @@ def update_email_settings(email_data: dict[str, Any]) -> dict[str, Any]:
         email_map["recipients"] = [str(r).strip() for r in raw_recipients if str(r).strip()]
     if "subject_prefix" in email_data and email_data["subject_prefix"] is not None:
         email_map["subject_prefix"] = str(email_data["subject_prefix"]).strip()
-    if "calculate_checksum" in email_data and email_data["calculate_checksum"] is not None:
-        val = bool(email_data["calculate_checksum"])
-        email_map["calculate_checksum"] = val
-        email_map["include_checksum"] = val
-    elif "include_checksum" in email_data and email_data["include_checksum"] is not None:
-        val = bool(email_data["include_checksum"])
-        email_map["calculate_checksum"] = val
-        email_map["include_checksum"] = val
+    email_map.pop("calculate_checksum", None)
+    email_map.pop("include_checksum", None)
     if "attach_result_json" in email_data and email_data["attach_result_json"] is not None:
         email_map["attach_result_json"] = bool(email_data["attach_result_json"])
     if "layout_mode" in email_data and email_data["layout_mode"] is not None:
