@@ -85,7 +85,9 @@ APKMIRROR_API_AUTH = "Basic YXBpLWFwa3VwZGF0ZXI6cm01cmNmcnVVakt5MDRzTXB5TVBKWFc4
 
 
 HEADERS_BROWSER = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 HEADERS_API = {
@@ -1079,15 +1081,28 @@ class UptodownClient:
             "hmac": sig,
         }
 
-        r = requests.post(
-            "https://www.uptodown.app/eapi/auth/token",
-            params={"identifier": identifier},
-            data=data,
-            headers=headers,
-            timeout=10,
-        )
-        r.raise_for_status()
-        token = r.json().get("token")
+        # Retry once with short backoff in case of transient CDN rate-limiting
+        last_err = None
+        token = None
+        for attempt in range(2):
+            try:
+                r = requests.post(
+                    "https://www.uptodown.app/eapi/auth/token",
+                    data=data,
+                    headers=headers,
+                    timeout=10,
+                )
+                r.raise_for_status()
+                token = r.json().get("token")
+                if token:
+                    break
+            except Exception as e:
+                last_err = e
+                if attempt == 0:
+                    time.sleep(2)
+                    continue
+                raise last_err
+
         if not token:
             raise RuntimeError("Uptodown auth endpoint did not return a token")
 
@@ -1267,8 +1282,28 @@ def query_uptodown(
         base_app_url = re.sub(r"https?://([^/]+)\.en\.uptodown\.com", r"https://\1.uptodown.com", app_url)
         base_app_url = re.sub(r"https?://en\.uptodown\.com", r"https://www.uptodown.com", base_app_url).rstrip("/")
 
-        dl_page_url = f"{base_app_url}/download"
-        page_html = fetch_html(dl_page_url)
+        # Try candidate URLs (English /download first, then regional fallbacks)
+        dl_candidates = [
+            f"{app_url.rstrip('/')}/download",
+            f"{base_app_url}/descargar",
+            f"{app_url.rstrip('/')}/descargar",
+            f"{base_app_url}/download",
+        ]
+        page_html = None
+        dl_page_url = None
+        for cand_url in dict.fromkeys(dl_candidates):
+            try:
+                cand_html = fetch_html(cand_url)
+                if cand_html and ("detail-download-button" in cand_html or "detail-app-name" in cand_html):
+                    page_html = cand_html
+                    dl_page_url = cand_url
+                    break
+            except Exception:
+                continue
+
+        if not page_html or not dl_page_url:
+            return None, f"Uptodown: Could not load download page for '{package_name}'"
+
         soup = BeautifulSoup(page_html, "html.parser")
 
         btn = soup.select_one("#detail-download-button")
@@ -1297,25 +1332,27 @@ def query_uptodown(
             if not latest_matches:
                 target_file_id = None
 
-                # 1. Inspect static /versions page
-                versions_url = f"{base_app_url}/versions"
-                try:
-                    ver_html = fetch_html(versions_url)
-                    ver_soup = BeautifulSoup(ver_html, "html.parser")
-                    if not app_id:
-                        v_app_el = ver_soup.select_one("#detail-app-name")
-                        if v_app_el:
-                            app_id = v_app_el.get("data-code")
+                # 1. Inspect static /versions page (try canonical and original host)
+                for v_url in dict.fromkeys([f"{base_app_url}/versions", f"{app_url.rstrip('/')}/versions"]):
+                    try:
+                        ver_html = fetch_html(v_url)
+                        ver_soup = BeautifulSoup(ver_html, "html.parser")
+                        if not app_id:
+                            v_app_el = ver_soup.select_one("#detail-app-name")
+                            if v_app_el:
+                                app_id = v_app_el.get("data-code")
 
-                    for row in ver_soup.select("#versions-items-list div[data-version-id], section.versions div[data-version-id], div[data-version-id], div[data-file-id]"):
-                        v_span = row.select_one("span.version")
-                        if v_span:
-                            v_text = v_span.get_text(strip=True)
-                            if is_version_compatible(v_text, op, target_tuple, clean_ver):
-                                target_file_id = row.get("data-version-id") or row.get("data-file-id")
-                                break
-                except Exception as e:
-                    logger.debug(f"Failed to fetch static versions page ({versions_url}): {e}")
+                        for row in ver_soup.select("#versions-items-list div[data-version-id], section.versions div[data-version-id], div[data-version-id], div[data-file-id]"):
+                            v_span = row.select_one("span.version")
+                            if v_span:
+                                v_text = v_span.get_text(strip=True)
+                                if is_version_compatible(v_text, op, target_tuple, clean_ver):
+                                    target_file_id = row.get("data-version-id") or row.get("data-file-id")
+                                    break
+                        if target_file_id:
+                            break
+                    except Exception as e:
+                        logger.debug(f"Failed to fetch static versions page ({v_url}): {e}")
 
                 # 2. Paginate via Uptodown AJAX endpoint if older version not on first page
                 if not target_file_id and app_id:
@@ -1909,8 +1946,25 @@ def _probe_uptodown_latest(package_name: str, arch: str, allow_betas: bool, time
         if not app_url:
             return None
 
-        dl_page_url = f"{app_url.rstrip('/')}/download"
-        page_html = fetch_html(dl_page_url)
+        page_html = None
+        base_app_url = re.sub(r"https?://([^/]+)\.en\.uptodown\.com", r"https://\1.uptodown.com", app_url)
+        base_app_url = re.sub(r"https?://en\.uptodown\.com", r"https://www.uptodown.com", base_app_url).rstrip("/")
+        for cand_url in dict.fromkeys([
+            f"{app_url.rstrip('/')}/download",
+            f"{base_app_url}/descargar",
+            f"{app_url.rstrip('/')}/descargar",
+            f"{base_app_url}/download",
+        ]):
+            try:
+                cand_html = fetch_html(cand_url)
+                if cand_html and ("detail-download-button" in cand_html or "detail-app-name" in cand_html):
+                    page_html = cand_html
+                    break
+            except Exception:
+                continue
+
+        if not page_html:
+            return None
         soup = BeautifulSoup(page_html, "html.parser")
 
         btn = soup.select_one("#detail-download-button")
