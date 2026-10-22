@@ -67,8 +67,8 @@ def main(project_root: Path, conf: dict) -> None:
 
             patch_success[package_name] = {'dest': dest, 'arch': architecture, 'scanned_repos': scanned_repos, 'applied_repos': resolved_applied, 'strategy': run, 'attempt': winning_attempt, 'attempts': attempt_details}
 
-            clear_old_packages(package_name, max_original_packages, original_dir / package_name, "unpatched", project_root)
-            clear_old_packages(package_name, max_patched_packages, patched_dir / package_name, "patched", project_root)
+            # clear_old_packages(package_name, max_original_packages, original_dir / package_name, "unpatched", project_root)
+            # clear_old_packages(package_name, max_patched_packages, patched_dir / package_name, "patched", project_root)
     
     except KeyboardInterrupt:
         interrupted = True
@@ -77,6 +77,9 @@ def main(project_root: Path, conf: dict) -> None:
     finally:
         if init_completed and not interrupted:
             duration_seconds = time.perf_counter() - start_time
+
+            clear_old_packages(max_original_packages, max_patched_packages, project_root, original_dir, patched_dir)
+
             dispatcher.main(
                 patch_success,
                 patch_failures,
@@ -310,27 +313,42 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
     logger.warning(f"\n[✗] All attempts failed for {package_name} when attempting to patch.")
     return False, None, attempt_details, None, None, None
 
-def clear_old_packages(package_name: str, max_packages: int, dir: Path, id: str, project_root: Path) -> None:
-    json_results = None
-    
-    if not max_packages or not dir.is_dir():
+def clear_old_packages(max_original_packages: int, max_patched_packages:int, project_root: Path, original_dir: Path, patched_dir: Path) -> None:
+    if not max_original_packages and not max_patched_packages:
         return
     
-    version_folders = [d for d in dir.iterdir() if d.is_dir()]
-
-    used_folders = [
-    folder for folder in version_folders 
-    if any(itertools.chain(folder.glob("*.xapk"), folder.rglob("*.apk")))
-    ]
-
     patched_json = project_root / "tools" / "automorph-data" / "state"  / "patched.json"
+    json_results = None
+    json_results = load_patched_json(patched_json)
 
-    if id == 'patched':
-        json_results = load_patched_json(patched_json)
-        if json_results:
-            check_patched_json(package_name, used_folders, json_results, patched_json)
+    if not json_results:
+        return
 
-    logger.info(f"\n[*] {max_packages} {id} package(s) allowed on disk. Checking {dir.name}...")
+    for package_name in json_results:
+        details = {'patched': {'directory': patched_dir / package_name, 'max_packages': max_patched_packages}, 'original': {'directory': original_dir / package_name, 'max_packages': max_original_packages}}
+
+        for key, values in details.items():
+            if not values['max_packages']:
+                continue
+
+            directory = values['directory']
+            if not directory.is_dir():
+                continue
+
+            version_folders = [d for d in directory.iterdir() if d.is_dir()]
+
+            used_folders = [
+            folder for folder in version_folders 
+            if any(itertools.chain(folder.glob("*.xapk"), folder.rglob("*.apk")))
+            ]
+
+            if key == 'patched':
+                check_patched_json(package_name, used_folders, json_results, patched_json)
+
+            check_packages(package_name, values['max_packages'], directory, key, version_folders, used_folders, patched_json, json_results)
+
+def check_packages(package_name: str, max_packages: int, directory: Path, id: str, version_folders: list, used_folders: list, patched_json: Path, json_results: dict) -> None:
+    logger.info(f"\n[*] {max_packages} {id} package(s) allowed on disk. Checking {directory.name}...")
 
     if len(version_folders) <= max_packages:
         logger.info(f" └── [✓] {len(version_folders)} {id} package(s) found. No deletions required.")
