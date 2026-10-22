@@ -325,6 +325,7 @@ def clear_old_packages(max_original_packages: int, max_patched_packages:int, pro
         return
 
     for package_name in json_results:
+        logger.info(f"\n[*] {max_original_packages} unpatched and {max_patched_packages} package(s) allowed on disk. Checking for {package_name}...")
         details = {'patched': {'directory': patched_dir / package_name, 'max_packages': max_patched_packages}, 'original': {'directory': original_dir / package_name, 'max_packages': max_original_packages}}
 
         for key, values in details.items():
@@ -345,11 +346,9 @@ def clear_old_packages(max_original_packages: int, max_patched_packages:int, pro
             if key == 'patched':
                 check_patched_json(package_name, used_folders, json_results, patched_json)
 
-            check_packages(package_name, values['max_packages'], directory, key, version_folders, used_folders, patched_json, json_results)
+            check_packages(package_name, values['max_packages'], key, version_folders, used_folders, patched_json, json_results)
 
-def check_packages(package_name: str, max_packages: int, directory: Path, id: str, version_folders: list, used_folders: list, patched_json: Path, json_results: dict) -> None:
-    logger.info(f"\n[*] {max_packages} {id} package(s) allowed on disk. Checking {directory.name}...")
-
+def check_packages(package_name: str, max_packages: int, id: str, version_folders: list, used_folders: list, patched_json: Path, json_results: dict) -> None:
     if len(version_folders) <= max_packages:
         logger.info(f" └── [✓] {len(version_folders)} {id} package(s) found. No deletions required.")
         return

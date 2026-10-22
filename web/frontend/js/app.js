@@ -2616,14 +2616,33 @@ function appendTerminalLine(text) {
   const div = document.createElement('div');
   div.className = 'terminal-line';
 
-  if (text.startsWith('[*]')) {
+  // Strip leading whitespace, newlines, and box-drawing tree characters to identify tags
+  const clean = text.replace(/^[\s\r\n\u2500-\u257F\u00A0]+/, '');
+
+  if (clean.startsWith('[*]')) {
     div.classList.add('log-info');
-  } else if (text.startsWith('[✓]')) {
+  } else if (clean.startsWith('[✓]') || clean.startsWith('[✔]')) {
     div.classList.add('log-success');
-  } else if (text.startsWith('[!]')) {
+  } else if (clean.startsWith('[!]')) {
     div.classList.add('log-warning');
-  } else if (text.startsWith('[✗]')) {
+  } else if (clean.startsWith('[✗]') || clean.startsWith('[x]') || clean.startsWith('[X]')) {
     div.classList.add('log-error');
+  } else if (text.includes('[✓]') || text.includes('[✔]')) {
+    div.classList.add('log-success');
+  } else if (text.includes('[✗]')) {
+    div.classList.add('log-error');
+  } else if (text.includes('[!]')) {
+    div.classList.add('log-warning');
+  } else if (text.includes('[*]')) {
+    div.classList.add('log-info');
+  }
+
+  // Prominently highlight core patch milestones
+  if (text.includes('Successfully patched')) {
+    div.classList.add('log-success', 'log-patch-success');
+  } else if (text.includes('Morphe CLI failed') || text.includes('All attempts failed for')) {
+    div.classList.remove('log-warning');
+    div.classList.add('log-error', 'log-patch-error');
   }
 
   div.textContent = text;
