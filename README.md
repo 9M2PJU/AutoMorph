@@ -36,7 +36,7 @@ For full step-by-step guides, visit our **[Documentation Hub](docs/README.md)**:
 
 ## Prerequisites
 
-- Docker & Docker Compose **or** a native install (Debian/Ubuntu, Fedora/RHEL, or AppImage — no Docker needed)
+- Docker & Docker Compose **or** a native install (Debian/Ubuntu, Fedora/RHEL, Arch, or AppImage — no Docker needed)
 
 ## Install
 
@@ -51,7 +51,23 @@ Installs the matching `.deb`/`.rpm` (or `.AppImage` fallback), enables the
 See [docs/native-install.md](docs/native-install.md) for channels (`--channel deb|rpm|appimage|docker`),
 version pins (`--version v1.2.3`), and manual `dpkg`/`dnf`/AppImage steps.
 
-### Option B — Docker Compose
+### Option B — Arch Linux (AUR)
+
+```bash
+yay -S automorph-git
+# or: paru -S automorph-git
+```
+
+Then configure and start:
+
+```bash
+sudo nano /etc/automorph/.env
+sudo systemctl enable --now automorph
+```
+
+PKGBUILD is maintained in [`packaging/aur/automorph-git`](packaging/aur/automorph-git); details in [docs/native-install.md](docs/native-install.md#arch-linux-aur).
+
+### Option C — Docker Compose
 
 1. Set up your preferred [remote tunnel](docs/tunnels.md) (Pangolin, Tailscale Funnel, or Cloudflare) to obtain your URL and tokens.
 2. Download `compose.yaml` (from [`default_compose.yaml`](default_compose.yaml)) and [`example.env`](example.env).
