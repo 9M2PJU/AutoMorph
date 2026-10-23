@@ -6,7 +6,7 @@
   <title>AutoMorph — Automated Patching Dashboard</title>
   <meta name="description" content="Management dashboard and APK repository for AutoMorph patcher engine.">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="alternate icon" type="image/png" href="trim-logo.png">
+  <link rel="alternate icon" type="image/png" href="favicon.png">
   
   <!-- Critical Anti-FOUC Styles & Theme Loader -->
   <style>
@@ -94,8 +94,8 @@
   <!-- Resource Preloads & Stylesheets -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="css/morphe.css?v=3.6">
-  <link rel="stylesheet" href="css/morphe.css?v=3.6">
+  <link rel="preload" as="style" href="css/morphe.css?v=3.7">
+  <link rel="stylesheet" href="css/morphe.css?v=3.7">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
 </head>
@@ -365,7 +365,9 @@
                 <option value="Asia/Tokyo">
                 <option value="Asia/Shanghai">
               </datalist>
-              <div class="form-subtext">Used for scheduled run times and timestamps.</div>
+              <div class="form-subtext">
+                Used for scheduled run times and timestamps. Uses <strong>IANA time zone</strong> format (e.g. <code>America/New_York</code>). If you are not sure of your time zone or format, check and copy it from <a href="https://places.app/time-in-place/" target="_blank" rel="noopener noreferrer">places.app/time-in-place</a>.
+              </div>
             </div>
 
             <!-- Daily Schedule Time -->
@@ -833,7 +835,7 @@
               <input type="checkbox" id="wiz-toggle-all-suggested" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
               <span>Recommended Repositories <span id="wiz-suggested-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
             </label>
-            <div style="width: 1px; height: 16px; background: var(--border-subtle);"></div>
+            <div class="repo-selection-divider"></div>
             <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none;">
               <input type="checkbox" id="wiz-toggle-all-global" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
               <span>Other Available Repositories <span id="wiz-global-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
@@ -859,7 +861,7 @@
 
       <!-- Step 3: Configure Patches -->
       <div id="wiz-step-3" class="wizard-content hidden">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+        <div class="patch-header-top" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
           <div>
             <h3 style="font-size: 1.125rem; font-family: var(--font-display);">Configure Patches</h3>
             <p style="font-size: 0.875rem; color: var(--text-muted);">
@@ -875,33 +877,33 @@
         </div>
 
         <!-- Filter Toolbar -->
-        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; background: var(--bg-surface-elevated); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px;">
-            <div class="search-input-wrap" style="flex: 1; max-width: 220px;">
+        <div class="patch-filter-toolbar">
+          <div class="patch-filter-search-group">
+            <div class="search-input-wrap">
               <span class="material-symbols-rounded search-icon">search</span>
               <input type="text" id="wiz-patch-search" class="search-input" placeholder="Search patches...">
             </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <label for="wiz-patch-repo-filter" style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Repo:</label>
-              <select id="wiz-patch-repo-filter" class="form-control" style="width: auto; padding: 4px 8px; font-size: 0.8125rem;">
+            <div class="patch-repo-filter-wrap">
+              <label for="wiz-patch-repo-filter">Repo:</label>
+              <select id="wiz-patch-repo-filter" class="form-control patch-repo-select">
                 <option value="all">All Repositories</option>
               </select>
             </div>
           </div>
-          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+          <div class="patch-pills-row">
             <div style="display: flex; gap: 4px;">
               <button type="button" class="patch-filter-pill active" data-wiz-filter="all">All</button>
               <button type="button" class="patch-filter-pill" data-wiz-filter="enabled">Enabled</button>
               <button type="button" class="patch-filter-pill" data-wiz-filter="disabled">Disabled</button>
             </div>
-            <div style="width: 1px; height: 18px; background: var(--border-subtle); margin: 0 4px;"></div>
+            <div class="patch-pills-divider"></div>
             <div style="display: flex; gap: 4px;">
               <button type="button" class="patch-filter-pill active" data-wiz-scope="all">All Scope</button>
               <button type="button" class="patch-filter-pill" data-wiz-scope="app">App-Specific</button>
               <button type="button" class="patch-filter-pill" data-wiz-scope="universal">Universal</button>
             </div>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div class="patch-actions-row">
             <button type="button" id="btn-wiz-patches-defaults" class="btn btn-secondary btn-sm" title="Restore official default selections">
               <span class="material-symbols-rounded">restart_alt</span>
               <span>Select Defaults</span>
@@ -912,9 +914,9 @@
         </div>
 
         <!-- Patch count summary -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8125rem; color: var(--text-dim);">
+        <div class="patch-summary-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8125rem; color: var(--text-dim); flex-wrap: wrap; gap: 6px;">
           <span id="wiz-patches-count-label">Loading patches...</span>
-          <span id="wiz-patches-repo-label" style="font-family: var(--font-mono);"></span>
+          <span id="wiz-patches-repo-label" style="font-family: var(--font-mono); word-break: break-all;"></span>
         </div>
 
         <!-- Patch list -->
@@ -1053,7 +1055,7 @@
                 <input type="checkbox" id="edit-toggle-all-suggested" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
                 <span>Recommended Repositories <span id="edit-suggested-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
               </label>
-              <div style="width: 1px; height: 16px; background: var(--border-subtle);"></div>
+              <div class="repo-selection-divider"></div>
               <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none;">
                 <input type="checkbox" id="edit-toggle-all-global" style="accent-color: var(--primary-cyan); width: 16px; height: 16px; cursor: pointer;">
                 <span>Other Available Repositories <span id="edit-global-count-badge" class="badge badge-info" style="margin-left: 2px; font-size: 0.75rem;">0</span></span>
@@ -1079,15 +1081,15 @@
 
         <!-- Tab Content 2: Patches & Options -->
         <div id="edit-tab-content-patches" class="hidden">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-main);">Repo Source:</span>
-              <select id="edit-patch-repo-filter" class="form-control" style="width: auto; padding: 4px 10px; font-size: 0.875rem;">
+          <div class="edit-patch-top-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+            <div class="patch-repo-filter-wrap">
+              <label for="edit-patch-repo-filter">Repo Source:</label>
+              <select id="edit-patch-repo-filter" class="form-control patch-repo-select">
                 <option value="all">All Repositories</option>
                 <!-- Options populated by app.js -->
               </select>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="edit-patch-top-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
               <span id="edit-patch-count-label" style="font-size: 0.8125rem; color: var(--text-dim);">0 of 0 patches enabled</span>
               <button type="button" id="btn-edit-download-options" class="btn btn-secondary btn-sm" title="Check and load available patches for this package">
                 <span class="material-symbols-rounded">visibility</span>
@@ -1097,25 +1099,27 @@
           </div>
 
           <!-- Patch Filter Toolbar -->
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; background: var(--bg-surface-elevated); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-            <div class="search-input-wrap" style="flex: 1; max-width: 240px;">
-              <span class="material-symbols-rounded search-icon">search</span>
-              <input type="text" id="edit-patch-search" class="search-input" placeholder="Search patches...">
+          <div class="patch-filter-toolbar">
+            <div class="patch-filter-search-group">
+              <div class="search-input-wrap">
+                <span class="material-symbols-rounded search-icon">search</span>
+                <input type="text" id="edit-patch-search" class="search-input" placeholder="Search patches...">
+              </div>
             </div>
-            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <div class="patch-pills-row">
               <div style="display: flex; gap: 4px;">
                 <button type="button" class="patch-filter-pill active" data-edit-filter="all">All</button>
                 <button type="button" class="patch-filter-pill" data-edit-filter="enabled">Enabled</button>
                 <button type="button" class="patch-filter-pill" data-edit-filter="disabled">Disabled</button>
               </div>
-              <div style="width: 1px; height: 18px; background: var(--border-subtle); margin: 0 4px;"></div>
+              <div class="patch-pills-divider"></div>
               <div style="display: flex; gap: 4px;">
                 <button type="button" class="patch-filter-pill active" data-edit-scope="all">All Scope</button>
                 <button type="button" class="patch-filter-pill" data-edit-scope="app">App-Specific</button>
                 <button type="button" class="patch-filter-pill" data-edit-scope="universal">Universal</button>
               </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div class="patch-actions-row">
               <button type="button" id="btn-edit-patches-defaults" class="btn btn-secondary btn-sm" title="Restore official defaults">
                 <span class="material-symbols-rounded">restart_alt</span>
                 <span>Select Defaults</span>
@@ -1438,7 +1442,7 @@
         <div id="email-wiz-step-4" class="wizard-content hidden">
           <h3 style="font-size: 1.125rem; font-family: var(--font-display); margin-bottom: 6px;">Email Formatting & Attachments</h3>
           <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 18px;">
-            Fine-tune layout density, SHA-256 integrity checksums, and JSON build artifacts.
+            Fine-tune layout density and JSON build artifacts.
           </p>
 
           <label class="form-label" style="margin-bottom: 10px;">Email Layout Presentation Mode</label>
@@ -1475,28 +1479,15 @@
           </div>
 
           <!-- Toggles -->
-          <div class="email-wiz-grid-2">
-            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-              <div>
-                <div style="font-weight: 600; font-size: 0.875rem;">SHA-256 Checksums</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Calculate & display APK checksums</div>
-              </div>
-              <label class="switch" style="margin-left: 12px;">
-                <input type="checkbox" id="email-wiz-checksum">
-                <span class="switch-slider"></span>
-              </label>
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <div>
+              <div style="font-weight: 600; font-size: 0.875rem;">Attach result.json</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Attach JSON build manifest to email</div>
             </div>
-
-            <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface-elevated); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-              <div>
-                <div style="font-weight: 600; font-size: 0.875rem;">Attach result.json</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Attach JSON build manifest to email</div>
-              </div>
-              <label class="switch" style="margin-left: 12px;">
-                <input type="checkbox" id="email-wiz-attach-json">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
+            <label class="switch" style="margin-left: 12px;">
+              <input type="checkbox" id="email-wiz-attach-json">
+              <span class="switch-slider"></span>
+            </label>
           </div>
         </div>
 
@@ -1528,7 +1519,7 @@
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: var(--text-dim);">Layout & Options:</td>
-                <td id="email-rev-layout" style="padding: 8px 0;">Auto Layout • Checksums Off • Attachments Off</td>
+                <td id="email-rev-layout" style="padding: 8px 0;">Auto Layout • Attachments Off</td>
               </tr>
             </table>
           </div>
@@ -1691,6 +1682,6 @@
   <div id="toast-container" style="position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 200;"></div>
 
   <!-- Script logic -->
-  <script src="js/app.js?v=3.5"></script>
+  <script src="js/app.js?v=3.7"></script>
 </body>
 </html>

@@ -8,6 +8,8 @@
     - [x] Look into using pyaxmlparser instead of aapt
 
 - [ ] only write options checksum on succesfull patch - or make a json of sucessfully patched apps and it can read from that instead
+    - [x] patched.json
+    - [ ] check patched.json
 
 - [ ] App search issues
     - [x] Chess.com - has-googleplay

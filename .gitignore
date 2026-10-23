@@ -33,6 +33,8 @@ scripts/test_dispatcher.py
 scripts/DISPATCHER_CONTRACT.md
 scripts/testing
 setup.txt
+test_email.html
+*test_email*
 
 # Whitelist
 !tools/automorph-data/app_sources.yaml

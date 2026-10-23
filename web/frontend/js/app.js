@@ -2057,9 +2057,6 @@ function openEmailWizard() {
   const inpThreshold = document.getElementById('email-wiz-compact-threshold');
   if (inpThreshold) inpThreshold.value = email.compact_threshold || 15;
 
-  const chkChecksum = document.getElementById('email-wiz-checksum');
-  if (chkChecksum) chkChecksum.checked = !!email.calculate_checksum;
-
   const chkAttachJson = document.getElementById('email-wiz-attach-json');
   if (chkAttachJson) chkAttachJson.checked = !!email.attach_result_json;
 
@@ -2260,7 +2257,6 @@ function getEmailWizardConfigPayload() {
     subject_prefix: document.getElementById('email-wiz-subject-prefix')?.value.trim() || '[Morphe Patcher]',
     layout_mode: layoutValue,
     compact_threshold: parseInt(document.getElementById('email-wiz-compact-threshold')?.value || '15', 10),
-    calculate_checksum: document.getElementById('email-wiz-checksum')?.checked,
     attach_result_json: document.getElementById('email-wiz-attach-json')?.checked,
   };
 }
@@ -2292,9 +2288,8 @@ function renderEmailWizardReview() {
 
   const elLayout = document.getElementById('email-rev-layout');
   if (elLayout) {
-    const checkStr = cfg.calculate_checksum ? 'Checksums On' : 'Checksums Off';
     const jsonStr = cfg.attach_result_json ? 'Attach JSON On' : 'Attach JSON Off';
-    elLayout.textContent = `${cfg.layout_mode.toUpperCase()} • ${checkStr} • ${jsonStr}`;
+    elLayout.textContent = `${cfg.layout_mode.toUpperCase()} • ${jsonStr}`;
   }
 }
 
@@ -2621,14 +2616,33 @@ function appendTerminalLine(text) {
   const div = document.createElement('div');
   div.className = 'terminal-line';
 
-  if (text.startsWith('[*]')) {
+  // Strip leading whitespace, newlines, and box-drawing tree characters to identify tags
+  const clean = text.replace(/^[\s\r\n\u2500-\u257F\u00A0]+/, '');
+
+  if (clean.startsWith('[*]')) {
     div.classList.add('log-info');
-  } else if (text.startsWith('[✓]')) {
+  } else if (clean.startsWith('[✓]') || clean.startsWith('[✔]')) {
     div.classList.add('log-success');
-  } else if (text.startsWith('[!]')) {
+  } else if (clean.startsWith('[!]')) {
     div.classList.add('log-warning');
-  } else if (text.startsWith('[✗]')) {
+  } else if (clean.startsWith('[✗]') || clean.startsWith('[x]') || clean.startsWith('[X]')) {
     div.classList.add('log-error');
+  } else if (text.includes('[✓]') || text.includes('[✔]')) {
+    div.classList.add('log-success');
+  } else if (text.includes('[✗]')) {
+    div.classList.add('log-error');
+  } else if (text.includes('[!]')) {
+    div.classList.add('log-warning');
+  } else if (text.includes('[*]')) {
+    div.classList.add('log-info');
+  }
+
+  // Prominently highlight core patch milestones
+  if (text.includes('Successfully patched')) {
+    div.classList.add('log-success', 'log-patch-success');
+  } else if (text.includes('Morphe CLI failed') || text.includes('All attempts failed for')) {
+    div.classList.remove('log-warning');
+    div.classList.add('log-error', 'log-patch-error');
   }
 
   div.textContent = text;
@@ -2931,7 +2945,7 @@ const MORPHE_DEFAULT_APPS = {
     name: 'YouTube',
     category: 'Video',
     description: 'Official YouTube app with ad-blocking, background playback, and customization options.',
-    icon_url: 'https://play-lh.googleusercontent.com/6Xy_7_z21b8VzE9LqY3E21G5hZ5g-jD8y5pQ7s4x1w0z9u8v7t6r5q4p3o2n1m0=s128-rw',
+    icon_url: 'https://play-lh.googleusercontent.com/QNmuZQc9I6Zbe3mWnSr0hycnENqGFCI5p3yE29Hkxtf22T0IWS6zTrpxULLyyjWpB7ONAXDsDQXnXcVWokl3eg=s128-rw',
     patch_count: 85,
   },
   'com.google.android.apps.youtube.music': {
@@ -2939,7 +2953,7 @@ const MORPHE_DEFAULT_APPS = {
     name: 'YouTube Music',
     category: 'Music & Audio',
     description: 'Official YouTube Music streaming app with ad-free listening and background play.',
-    icon_url: 'https://play-lh.googleusercontent.com/s_5l5Y_P_hYlVv1jX1Xw0B8uA1vYl3D_X9l4mG8A4b3K1zJ2N8P1q2R3S4T5U6V7=s128-rw',
+    icon_url: 'https://play-lh.googleusercontent.com/MyptZXmcCyF59phIWPsNCfHq6zSO_ojEdw_4rMYYWPOGdikSjqeOXcoszBZ053VYpINe5K7ZR9KV1nkFWgxdOw=s128-rw',
     patch_count: 25,
   },
   'com.reddit.frontpage': {
@@ -2955,7 +2969,8 @@ const MORPHE_DEFAULT_APPS = {
 let morpheCatalogData = null;
 try {
   sessionStorage.removeItem('morphe_catalog_data_v5');
-  const cachedCatalog = sessionStorage.getItem('morphe_catalog_data_v6');
+  sessionStorage.removeItem('morphe_catalog_data_v6');
+  const cachedCatalog = sessionStorage.getItem('morphe_catalog_data_v7');
   if (cachedCatalog) morpheCatalogData = JSON.parse(cachedCatalog);
 } catch (_) {}
 
@@ -2965,14 +2980,14 @@ async function fetchMorpheCatalog(force = false) {
   if (force) {
     morpheCatalogData = null;
     try {
-      sessionStorage.removeItem('morphe_catalog_data_v6');
+      sessionStorage.removeItem('morphe_catalog_data_v7');
     } catch (_) {}
   }
   if (morpheCatalogData) return morpheCatalogData;
 
   if (!force) {
     try {
-      const cached = sessionStorage.getItem('morphe_catalog_data_v6');
+      const cached = sessionStorage.getItem('morphe_catalog_data_v7');
       if (cached) {
         morpheCatalogData = JSON.parse(cached);
         return morpheCatalogData;
@@ -3036,9 +3051,20 @@ async function fetchMorpheCatalog(force = false) {
         };
       } else {
         if (sInfo.name && sInfo.name !== pkg) catalog[pkg].name = sInfo.name;
-        if (sInfo.iconUrl) catalog[pkg].icon_url = sInfo.iconUrl;
+        if (sInfo.iconUrl && !sInfo.iconUrl.includes('6Xy_7_z21b8') && !sInfo.iconUrl.includes('s_5l5Y_P_hYlV')) {
+          catalog[pkg].icon_url = sInfo.iconUrl;
+        }
         if (sInfo.description) catalog[pkg].description = sInfo.description;
         if (sInfo.category) catalog[pkg].category = sInfo.category;
+      }
+    }
+
+    // Ensure official default apps always maintain verified icons
+    for (const [defPkg, defInfo] of Object.entries(MORPHE_DEFAULT_APPS)) {
+      if (catalog[defPkg] && defInfo.icon_url) {
+        if (!catalog[defPkg].icon_url || catalog[defPkg].icon_url.includes('6Xy_7_z21b8') || catalog[defPkg].icon_url.includes('s_5l5Y_P_hYlV')) {
+          catalog[defPkg].icon_url = defInfo.icon_url;
+        }
       }
     }
 
@@ -3163,7 +3189,7 @@ async function fetchMorpheCatalog(force = false) {
 
     morpheCatalogData = catalog;
     try {
-      sessionStorage.setItem('morphe_catalog_data_v6', JSON.stringify(catalog));
+      sessionStorage.setItem('morphe_catalog_data_v7', JSON.stringify(catalog));
     } catch (_) {}
     return catalog;
   } catch (err) {
@@ -3242,26 +3268,35 @@ async function searchCatalog(query) {
     const icon = item.icon_url ? `<img src="${item.icon_url}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover;" onerror="this.src='https://github.com/ghost.png?size=32'">` : `<span class="material-symbols-rounded">android</span>`;
 
     return `
-      <div class="catalog-item-card ${isSelected ? 'selected' : ''}" onclick="selectCatalogApp('${item.package}', '${escapeHtml(item.name)}')">
-        <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+      <div class="catalog-item-card ${isSelected ? 'selected' : ''}" onclick="selectCatalogApp(this, '${item.package}', '${escapeHtml(item.name)}')" title="${escapeHtml(item.name)} (${item.package})">
+        <div class="catalog-item-icon">
           ${icon}
         </div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 600; font-size: 0.9375rem;">${escapeHtml(item.name)}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">${item.package}</div>
+        <div class="catalog-item-info">
+          <div class="catalog-item-name">${escapeHtml(item.name)}</div>
+          <div class="catalog-item-pkg" title="${item.package}">${item.package}</div>
         </div>
-        <span class="badge badge-info" style="font-size: 0.6875rem;">${item.supported_repos?.length || 0} Repos</span>
+        <span class="badge badge-info catalog-item-badge">${item.supported_repos?.length || 0} Repos</span>
       </div>
     `;
   }).join('');
 }
 
-function selectCatalogApp(pkg, name) {
+function selectCatalogApp(cardEl, pkg, name) {
+  if (typeof cardEl === 'string') {
+    name = pkg;
+    pkg = cardEl;
+    cardEl = null;
+  }
   state.wizard.selectedPackage = pkg;
   state.wizard.selectedAppName = name;
 
   document.querySelectorAll('.catalog-item-card').forEach(el => el.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
+  if (cardEl && cardEl.classList) {
+    cardEl.classList.add('selected');
+  } else if (window.event?.currentTarget) {
+    window.event.currentTarget.classList.add('selected');
+  }
 }
 
 async function loadSuggestedReposForPackage(pkg) {
@@ -3447,17 +3482,17 @@ function addSuggestedRepoItem(repo, isChecked = true) {
 
 function createRepoCheckboxElement(url, label, badgeText, isChecked = false, onToggleChange = null) {
   const div = document.createElement('label');
-  div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer;';
+  div.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); cursor: pointer; gap: 8px;';
 
   div.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <input type="checkbox" value="${url}" ${isChecked ? 'checked' : ''}>
-      <span style="font-weight: 600; font-size: 0.875rem;">${escapeHtml(label)}</span>
-      <a href="${escapeHtml(formatRepoUrl(url))}" target="_blank" rel="noopener noreferrer" class="repo-row-link" title="Open repository in new tab" onclick="event.stopPropagation()">
+    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+      <input type="checkbox" value="${url}" ${isChecked ? 'checked' : ''} style="flex-shrink: 0;">
+      <span class="repo-row-label" style="font-weight: 600; font-size: 0.875rem;">${escapeHtml(label)}</span>
+      <a href="${escapeHtml(formatRepoUrl(url))}" target="_blank" rel="noopener noreferrer" class="repo-row-link" title="Open repository in new tab" onclick="event.stopPropagation()" style="flex-shrink: 0; display: inline-flex; align-items: center;">
         <span class="material-symbols-rounded" style="font-size: 14px;">open_in_new</span>
       </a>
     </div>
-    <span class="badge badge-info">${badgeText}</span>
+    <span class="badge badge-info" style="flex-shrink: 0;">${badgeText}</span>
   `;
 
   div.querySelector('input').addEventListener('change', (e) => {
@@ -4005,10 +4040,10 @@ function renderPatchCardHtml(patch, isWizard) {
     <div class="patch-card ${patch.enabled ? 'active' : ''}">
       <div class="patch-header-row">
         <div class="patch-title">
-          <span class="material-symbols-rounded" style="font-size: 18px; color: ${patch.enabled ? 'var(--primary-cyan)' : 'var(--text-dim)'};">
+          <span class="material-symbols-rounded" style="font-size: 18px; color: ${patch.enabled ? 'var(--primary-cyan)' : 'var(--text-dim)'}; flex-shrink: 0;">
             ${patch.enabled ? 'check_circle' : 'radio_button_unchecked'}
           </span>
-          <span style="font-weight: 600;">${escapedName}</span>
+          <span class="patch-title-text" style="font-weight: 600;">${escapedName}</span>
           ${patch.defaultEnabled ? '<span class="badge badge-info" style="font-size: 0.6875rem;">Default</span>' : ''}
           <span class="patch-scope-chip ${isAppScope ? 'app-specific' : 'universal'}">
             <span class="material-symbols-rounded" style="font-size: 12px;">${isAppScope ? 'category' : 'public'}</span>
@@ -4019,7 +4054,7 @@ function renderPatchCardHtml(patch, isWizard) {
             <span>${escapedOwner}</span>
           </span>
         </div>
-        <label class="switch" title="${patch.enabled ? 'Enabled' : 'Disabled'}">
+        <label class="switch" title="${patch.enabled ? 'Enabled' : 'Disabled'}" style="flex-shrink: 0;">
           <input type="checkbox" ${patch.enabled ? 'checked' : ''} onchange="${toggleFn}('${escapedOwner}', '${escapedName}', this.checked)">
           <span class="switch-slider"></span>
         </label>
@@ -5676,7 +5711,7 @@ async function viewResultJson(fileUrl, fileName, contextPath) {
     `;
 
     // Pipeline Steps
-    const steps = data.patchingSteps || [];
+    const steps = data.stepResults || data.patchingSteps || [];
     const stepsContainer = document.getElementById('res-steps-container');
     if (steps.length === 0) {
       stepsContainer.innerHTML = `<span style="color: var(--text-dim); font-size: 0.8125rem;">No explicit steps recorded.</span>`;

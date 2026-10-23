@@ -67,8 +67,8 @@ def main(project_root: Path, conf: dict) -> None:
 
             patch_success[package_name] = {'dest': dest, 'arch': architecture, 'scanned_repos': scanned_repos, 'applied_repos': resolved_applied, 'strategy': run, 'attempt': winning_attempt, 'attempts': attempt_details}
 
-            clear_old_packages(package_name, max_original_packages, original_dir / package_name, "unpatched", project_root)
-            clear_old_packages(package_name, max_patched_packages, patched_dir / package_name, "patched", project_root)
+            # clear_old_packages(package_name, max_original_packages, original_dir / package_name, "unpatched", project_root)
+            # clear_old_packages(package_name, max_patched_packages, patched_dir / package_name, "patched", project_root)
     
     except KeyboardInterrupt:
         interrupted = True
@@ -77,6 +77,9 @@ def main(project_root: Path, conf: dict) -> None:
     finally:
         if init_completed and not interrupted:
             duration_seconds = time.perf_counter() - start_time
+
+            clear_old_packages(max_original_packages, max_patched_packages, project_root, original_dir, patched_dir)
+
             dispatcher.main(
                 patch_success,
                 patch_failures,
@@ -247,6 +250,7 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
     targets = details['target_versions']
     patch_attempt = details.get('patch_attempt', 0)
     attempt_details = []
+    failed_downloads = set()
 
     while patch_attempt < (len(targets) * 2):
         if patch_attempt < len(targets):
@@ -254,11 +258,17 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
             target_tuple = targets[patch_attempt]
             target_version = target_tuple[0]
             patched_package = patched_dir / package_name / target_version / f"{package_name}_{target_version}_patched.apk"
-        elif patch_attempt >= len(targets):
+        else:
             run = 2
             target_tuple = targets[(patch_attempt - len(targets))]
             target_version = target_tuple[0]
             patched_package = patched_dir / package_name / target_version / f"{package_name}_{target_version}_patched.apk"
+
+            if len(failed_downloads) == len(targets):
+                break
+            if target_version in failed_downloads:
+                patch_attempt += 1
+                continue
 
         if patched_package.is_file() and not force:
             logger.info(f" └── [✓] {package_name} v{target_version} is already patched.")
@@ -268,6 +278,7 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
 
         if not patch_list:
             logger.warning(f" └── [!] Base APK download/verification failed for v{target_version}.")
+            failed_downloads.add(target_version)
             attempt_details.append({"version": target_version, "run": run, "stage": "Download / Verification", "reason": dl_reason or f"Base APK download/verification failed for v{target_version}"})
             patch_attempt += 1
             continue
@@ -294,15 +305,14 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
                 logger.warning(f"\n[✗] Only attempt failed for {package_name} when attempting all enabled patches. No other versions to try.")
                 return False, None, attempt_details, None, None, None
             
-            if patch_attempt < len(targets):
+            if patch_attempt < len(targets) - 1:
                 logger.info(f" └── [!] Patch failed on v{target_version} with all enabled patches attempted. Falling back to next version...")
             else:
                 logger.info(f" └── [!] Patch failed on v{target_version} with all enabled patches attempted. No more versions to try.")
                 logger.info(f"      └── Will attempt to patch {targets[0]} with only version compatible patches enabled...")
 
-
-        elif run == 2:
-            if patch_attempt < len(targets):
+        else:
+            if patch_attempt < (len(targets) * 2) - 1:
                 logger.info(f" └── [!] Patch failed on v{target_version} with version specific patches selected. Falling back to next version...")
  
         patch_attempt += 1
@@ -310,28 +320,42 @@ def patch_piepline(package_name, details, downloader, morphe, enabled_patches, p
     logger.warning(f"\n[✗] All attempts failed for {package_name} when attempting to patch.")
     return False, None, attempt_details, None, None, None
 
-def clear_old_packages(package_name: str, max_packages: int, dir: Path, id: str, project_root: Path) -> None:
-    json_results = None
-    
-    if not max_packages or not dir.is_dir():
+def clear_old_packages(max_original_packages: int, max_patched_packages:int, project_root: Path, original_dir: Path, patched_dir: Path) -> None:
+    if not max_original_packages and not max_patched_packages:
         return
     
-    version_folders = [d for d in dir.iterdir() if d.is_dir()]
-
-    used_folders = [
-    folder for folder in version_folders 
-    if any(itertools.chain(folder.glob("*.xapk"), folder.rglob("*.apk")))
-    ]
-
     patched_json = project_root / "tools" / "automorph-data" / "state"  / "patched.json"
+    json_results = None
+    json_results = load_patched_json(patched_json)
 
-    if id == 'patched':
-        json_results = load_patched_json(patched_json)
-        if json_results:
-            check_patched_json(package_name, used_folders, json_results, patched_json)
+    if not json_results:
+        return
 
-    logger.info(f"\n[*] {max_packages} {id} package(s) allowed on disk. Checking {dir.name}...")
+    for package_name in json_results:
+        logger.info(f"\n[*] {max_original_packages} unpatched and {max_patched_packages} package(s) allowed on disk. Checking for {package_name}...")
+        details = {'patched': {'directory': patched_dir / package_name, 'max_packages': max_patched_packages}, 'original': {'directory': original_dir / package_name, 'max_packages': max_original_packages}}
 
+        for key, values in details.items():
+            if not values['max_packages']:
+                continue
+
+            directory = values['directory']
+            if not directory.is_dir():
+                continue
+
+            version_folders = [d for d in directory.iterdir() if d.is_dir()]
+
+            used_folders = [
+            folder for folder in version_folders 
+            if any(itertools.chain(folder.glob("*.xapk"), folder.rglob("*.apk")))
+            ]
+
+            if key == 'patched':
+                check_patched_json(package_name, used_folders, json_results, patched_json)
+
+            check_packages(package_name, values['max_packages'], key, version_folders, used_folders, patched_json, json_results)
+
+def check_packages(package_name: str, max_packages: int, id: str, version_folders: list, used_folders: list, patched_json: Path, json_results: dict) -> None:
     if len(version_folders) <= max_packages:
         logger.info(f" └── [✓] {len(version_folders)} {id} package(s) found. No deletions required.")
         return

@@ -29,7 +29,6 @@ email:
   recipients:
 
   subject_prefix: "[AutoMorph]"
-  calculate_checksum: false      # Optional SHA-256 calculation
   attach_result_json: false      # Optional attachment of result.json to email
   layout_mode: "auto"            # "auto" (compact if > threshold), "compact", or "cards"
   compact_threshold: 15          # App count above which email switches to compact view

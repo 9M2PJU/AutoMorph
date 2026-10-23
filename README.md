@@ -25,27 +25,31 @@
 ### Settings & Tunnels
 ![Settings & Tunnels](images/settings.png)
 
+## Documentation
+
+For full step-by-step guides, visit our **[Documentation Hub](docs/README.md)**:
+
+* ☁️ **[Oracle Free Tier Setup Guide (Optional)](docs/oracle-setup.md)**: Optional guide to launch a free VPS on Oracle Cloud (skip if you already have your own server!).
+* 🚇 **[Remote Access & Tunnels Guide](docs/tunnels.md)**: Expose your portal securely with free HTTPS via Pangolin, Tailscale Funnel, or Cloudflare Tunnels.
+* 📖 **[User Guide & Web Interface](docs/user-guide.md)**: Managing packages, customizing patch options, daily schedules, and email notifications.
+
 ## Prerequisites
 
-- Docker
-- Docker Compose
-
-## Don't Have a Server?
-
-AutoMorph can run in low-spec mode on an Oracle Cloud free-tier instance. Check out the setup guide. An initialisation script is also provided to automate most of the setup.
+- Docker & Docker Compose
 
 ## Quick Start
 
-1. Download `compose.yaml` and `example.env`.
-2. Fill in your details in `example.env`, then rename it to `.env`.
-3. Run the following commands:
+1. Set up your preferred [remote tunnel](docs/tunnels.md) (Pangolin, Tailscale Funnel, or Cloudflare) to obtain your URL and tokens.
+2. Download `compose.yaml` (from [`default_compose.yaml`](default_compose.yaml)) and [`example.env`](example.env).
+3. Fill in your details and tunnel credentials in `example.env`, then rename it to `.env`.
+4. Run:
 
    ```bash
    docker compose pull
    docker compose up -d
    ```
 
-See the documentation for more information on setup and configuration.
+4. Open your web portal via your configured tunnel or local URL (`http://localhost:8080`). For detailed configuration, see the [User Guide](docs/user-guide.md).
 
 ## A Note on AI
 
