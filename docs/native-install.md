@@ -36,6 +36,22 @@ chmod +x AutoMorph-1.2.3-x86_64.AppImage
 AUTOMORPH_PORT=8080 ./AutoMorph-1.2.3-x86_64.AppImage
 ```
 
+## Arch Linux (AUR)
+
+`automorph-git` tracks the git source and rebuilds on update. The PKGBUILD lives in
+[`packaging/aur/automorph-git`](../packaging/aur/automorph-git/) with pinned
+Morphe jar checksums:
+
+```bash
+yay -S automorph-git   # or: paru -S automorph-git
+sudo nano /etc/automorph/.env
+sudo systemctl enable --now automorph
+```
+
+Layout and service behaviour match the .deb/.rpm above
+(`/opt/automorph` payload, `/var/lib/automorph` state, `automorph.service`).
+Maintainer: 9M2PJU.
+
 Then edit secrets and restart:
 
 ```bash
